@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #07080c;
+  --foreground: #f4f4f5;
 }
 
 @theme inline {
@@ -12,15 +12,63 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--background);
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 14% 0%, rgba(99, 102, 241, 0.2), transparent 24%),
+    radial-gradient(circle at 84% 8%, rgba(168, 85, 247, 0.14), transparent 22%),
+    radial-gradient(circle at 50% 100%, rgba(59, 130, 246, 0.08), transparent 24%),
+    linear-gradient(180deg, #07080c 0%, #0a0b10 52%, #07080c 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+body::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.04), transparent 34%);
+  background-size: 88px 88px, 88px 88px, 100% 100%;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.82), transparent 95%);
+  opacity: 0.2;
+}
+
+body::after {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  opacity: 0.06;
+  mix-blend-mode: soft-light;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.5) 0.5px, transparent 0.5px);
+  background-size: 6px 6px;
+}
+
+::selection {
+  background: rgba(168, 85, 247, 0.28);
+  color: #ffffff;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+main > section {
+  animation: fade-up 480ms ease-out both;
 }
