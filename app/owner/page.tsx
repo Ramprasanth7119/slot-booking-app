@@ -44,9 +44,14 @@ export default function OwnerPage() {
               This page will later hold calendar, slot creation, and booking management tools.
             </p>
           </div>
-          <Link href="/" className={`${buttonClassName("secondary")} inline-flex`}>
-            Back to home
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/owner/create-slot" className={`${buttonClassName("primary")} inline-flex`}>
+              Create Slot
+            </Link>
+            <Link href="/" className={`${buttonClassName("secondary")} inline-flex`}>
+              Back to home
+            </Link>
+          </div>
         </div>
       </div>
     </section>

@@ -25,6 +25,8 @@ export default function Icon() {
             position: "relative",
             width: 30,
             height: 30,
+            display: "flex",
+            flexShrink: 0,
             borderRadius: 9,
             overflow: "hidden",
             boxShadow: "0 6px 14px rgba(15, 23, 42, 0.22)",

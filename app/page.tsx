@@ -1,43 +1,44 @@
+import { headers } from "next/headers";
 import Link from "next/link";
 
 import { SlotCard } from "@/components/slot-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const slots = [
-  {
-    title: "Morning Strategy Call",
-    timeRange: "Mon, 09:00 AM - 09:30 AM",
-    status: "Available" as const,
-  },
-  {
-    title: "Client Demo Window",
-    timeRange: "Mon, 10:00 AM - 10:30 AM",
-    status: "Full" as const,
-  },
-  {
-    title: "Design Review",
-    timeRange: "Mon, 11:00 AM - 11:30 AM",
-    status: "Available" as const,
-  },
-  {
-    title: "Sales Intro Call",
-    timeRange: "Mon, 01:00 PM - 01:30 PM",
-    status: "Available" as const,
-  },
-  {
-    title: "Team Sync",
-    timeRange: "Mon, 02:00 PM - 02:30 PM",
-    status: "Full" as const,
-  },
-  {
-    title: "Consultation Slot",
-    timeRange: "Mon, 03:00 PM - 03:30 PM",
-    status: "Available" as const,
-  },
-];
+type SlotResponse = {
+  id: string;
+  title: string;
+  description: string;
+  timeRange: string;
+  timezone: string;
+  bookedCount: number;
+  capacity: number;
+  status: "Available" | "Full" | "Expired";
+};
 
-export default function Home() {
+async function getSlots(): Promise<SlotResponse[]> {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("host");
+  const protocol = host?.includes("localhost") ? "http" : "https";
+  const baseUrl = host ? `${protocol}://${host}` : "http://localhost:3000";
+
+  try {
+    const response = await fetch(`${baseUrl}/api/slots`, { cache: "no-store" });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = (await response.json()) as { slots?: SlotResponse[] };
+    return data.slots ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export default async function Home() {
+  const slots = await getSlots();
+
   return (
     <section className="space-y-16 py-10 sm:py-14 lg:py-20">
       <div className="grid items-center gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(460px,0.95fr)] xl:gap-10">
@@ -85,16 +86,31 @@ export default function Home() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-[1.65rem]">Available Slots</h2>
-            <p className="mt-2 text-sm leading-7 text-zinc-400">Static sample data to establish the layout system.</p>
+            <p className="mt-2 text-sm leading-7 text-zinc-400">Live slot data fetched from the API and ordered by the next upcoming time.</p>
           </div>
-          <p className="text-sm text-zinc-500">6 slots shown</p>
+          <p className="text-sm text-zinc-500">{slots.length} slots shown</p>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {slots.map((slot) => (
-            <SlotCard key={slot.title} title={slot.title} timeRange={slot.timeRange} status={slot.status} />
-          ))}
-        </div>
+        {slots.length ? (
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {slots.map((slot) => (
+              <SlotCard
+                key={slot.id}
+                title={slot.title}
+                description={slot.description}
+                timeRange={slot.timeRange}
+                timezone={slot.timezone}
+                bookedCount={slot.bookedCount}
+                capacity={slot.capacity}
+                status={slot.status}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-[1.5rem] border border-dashed border-white/10 bg-white/[0.03] p-8 text-sm text-zinc-400">
+            No live slots yet. Use the owner create form to add the first slot.
+          </div>
+        )}
       </section>
     </section>
   );
