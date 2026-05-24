@@ -44,14 +44,14 @@ export default async function Home() {
       <div className="grid items-center gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(460px,0.95fr)] xl:gap-10">
         <div className="space-y-6">
           <p className="text-xs font-semibold uppercase tracking-[0.34em] text-violet-300/80">
-            Slot booking foundation
+            Slot booking platform
           </p>
           <div className="space-y-4">
             <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-[4.35rem] lg:leading-[1.02]">
               Book Your Time Slots Instantly
             </h1>
             <p className="max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg sm:leading-8">
-              A clean booking interface for customers and owners, built with a calm SaaS-style layout and ready for future booking workflows.
+              Browse available slots, reserve your preferred time, and manage your bookings in one place. Secure, reliable, and easy to use.
             </p>
           </div>
         </div>
@@ -63,22 +63,22 @@ export default async function Home() {
               Search
             </Button>
           </div>
-          <p className="mt-3 text-xs leading-6 text-zinc-500">Search UI only for Day 1. Booking logic comes later.</p>
+          <p className="mt-3 text-xs leading-6 text-zinc-500">Advanced search features available. Browse all slots below or create a new one.</p>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-400">
         <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-zinc-200 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
-          Today
+          Real-time updates
         </span>
         <span className="rounded-full border border-white/10 bg-white/[0.02] px-4 py-2 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
           Live availability preview
         </span>
         <Link
-          href="/owner"
+            href="/admin"
           className="rounded-full border border-white/10 bg-white/[0.02] px-4 py-2 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/5 hover:text-white"
         >
-          Owner tools
+            Admin tools
         </Link>
       </div>
 
@@ -86,9 +86,9 @@ export default async function Home() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-[1.65rem]">Available Slots</h2>
-            <p className="mt-2 text-sm leading-7 text-zinc-400">Live slot data fetched from the API and ordered by the next upcoming time.</p>
+            <p className="mt-2 text-sm leading-7 text-zinc-400">Browse all available time slots and book what works for you.</p>
           </div>
-          <p className="text-sm text-zinc-500">{slots.length} slots shown</p>
+          <p className="text-sm text-zinc-500">{slots.length} slot{slots.length !== 1 ? 's' : ''} available</p>
         </div>
 
         {slots.length ? (
@@ -96,6 +96,7 @@ export default async function Home() {
             {slots.map((slot) => (
               <SlotCard
                 key={slot.id}
+                id={slot.id}
                 title={slot.title}
                 description={slot.description}
                 timeRange={slot.timeRange}

@@ -1,9 +1,53 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { CreateSlotForm } from "@/components/create-slot-form";
 import { buttonClassName } from "@/components/ui/button";
 
+const OWNER_PIN_KEY = "owner-pin";
+
 export default function CreateSlotPage() {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const pin = window.sessionStorage.getItem(OWNER_PIN_KEY);
+    const timer = window.setTimeout(() => {
+      if (!pin) {
+        router.push("/owner");
+      } else {
+        setIsAuthenticated(true);
+      }
+      setIsLoading(false);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [router]);
+
+  if (isLoading) {
+    return (
+      <section className="space-y-8 py-8 sm:py-12">
+        <div className="text-center">
+          <p className="text-sm text-zinc-400">Loading...</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <section className="space-y-8 py-8 sm:py-12">
+        <div className="text-center">
+          <p className="text-sm text-rose-300">Redirecting to owner login...</p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="mx-auto max-w-4xl space-y-8 py-8 sm:py-12">
       <div className="space-y-4">
@@ -12,7 +56,7 @@ export default function CreateSlotPage() {
           <div className="max-w-2xl space-y-3">
             <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Create a new slot</h1>
             <p className="text-sm leading-7 text-zinc-400 sm:text-base">
-              Add a slot once and it will persist in MongoDB, then show up on the homepage listing with the correct availability state.
+              Define your availability by creating time slots. Set the capacity, duration, and timezone for each slot. Once created, slots appear immediately on the booking page.
             </p>
           </div>
           <Link href="/owner" className={`${buttonClassName("secondary")} inline-flex`}>
