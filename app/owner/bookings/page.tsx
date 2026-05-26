@@ -17,6 +17,8 @@ type OwnerBooking = {
   slotTimezone: string;
   slotCapacity: number;
   slotBookedCount: number;
+  slotRemainingSeats: number;
+  slotStatus: "Available" | "Full" | "Expired" | "Archived";
   customerName: string;
   customerEmail: string;
   bookingStatus: "confirmed" | "cancelled";
@@ -145,6 +147,7 @@ export default function OwnerBookingsPage() {
               });
 
               const isExpired = new Date(booking.slotEndTime) < new Date();
+              const slotTone = booking.slotStatus === "Archived" ? "neutral" : booking.slotStatus === "Expired" ? "warning" : booking.slotStatus === "Full" ? "danger" : "success";
               const badgeTone =
                 booking.bookingStatus === "cancelled"
                   ? "warning"
@@ -165,6 +168,10 @@ export default function OwnerBookingsPage() {
                         <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
                           {booking.slotBookedCount}/{booking.slotCapacity} booked
                         </span>
+                        <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+                          {booking.slotRemainingSeats} remaining
+                        </span>
+                        <Badge tone={slotTone}>{booking.slotStatus}</Badge>
                         <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
                           {booking.slotTimezone}
                         </span>

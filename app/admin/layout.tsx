@@ -2,13 +2,10 @@
 
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { Button, buttonClassName } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-const OWNER_AUTH_KEY = "owner-auth";
-const OWNER_PIN_KEY = "owner-pin";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -16,25 +13,51 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter();
 
-  function handleLogout() {
-    window.sessionStorage.removeItem(OWNER_AUTH_KEY);
-    window.sessionStorage.removeItem(OWNER_PIN_KEY);
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
     setIsAuthorized(false);
     setPin("");
     setError(null);
   }
 
+  function handleLeaveToPublic() {
+    // clear auth so returning via history requires re-auth
+    void fetch("/api/auth/logout", { method: "POST" });
+    setIsAuthorized(false);
+  }
+
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const storedAuth = window.sessionStorage.getItem(OWNER_AUTH_KEY) === "true";
-      const storedPin = window.sessionStorage.getItem(OWNER_PIN_KEY);
+    let isMounted = true;
 
-      setIsAuthorized(storedAuth && Boolean(storedPin));
-      setIsCheckingAuth(false);
-    }, 0);
+    async function checkSession() {
+      try {
+        const response = await fetch("/api/auth/session", { cache: "no-store" });
+        const data = (await response.json()) as { authenticated?: boolean };
+        if (!isMounted) return;
+        setIsAuthorized(Boolean(data.authenticated));
+      } finally {
+        if (isMounted) {
+          setIsCheckingAuth(false);
+        }
+      }
+    }
 
-    return () => window.clearTimeout(timer);
+    void checkSession();
+
+    function onPageShow() {
+      void checkSession();
+    }
+
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("popstate", onPageShow);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("popstate", onPageShow);
+    };
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -49,6 +72,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ pin }),
+        credentials: "include",
       });
 
       const data = (await response.json()) as { success?: boolean };
@@ -58,8 +82,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         return;
       }
 
-      window.sessionStorage.setItem(OWNER_AUTH_KEY, "true");
-      window.sessionStorage.setItem(OWNER_PIN_KEY, pin);
       setIsAuthorized(true);
       setPin("");
     } catch {
@@ -134,10 +156,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <p className="mt-1 text-sm text-zinc-300">Protected slot management workspace</p>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/" className={`${buttonClassName("ghost")} inline-flex h-10 px-4`}>
+            <button type="button" onClick={() => { handleLeaveToPublic(); void router.push("/"); }} className={`${buttonClassName("ghost")} inline-flex h-10 px-4`}>
               Public site
-            </Link>
-            <button type="button" onClick={handleLogout} className={`${buttonClassName("secondary")} inline-flex h-10 px-4`}>
+            </button>
+            <button type="button" onClick={() => { void handleLogout(); }} className={`${buttonClassName("secondary")} inline-flex h-10 px-4`}>
               Logout
             </button>
           </div>

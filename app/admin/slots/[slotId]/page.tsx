@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ObjectId } from "mongodb";
 
 import { CreateSlotForm } from "@/components/create-slot-form";
+import { Badge } from "@/components/ui/badge";
 import { buttonClassName } from "@/components/ui/button";
 import { getMongoDb } from "@/lib/mongodb";
 import { serializeSlot, type SlotDocument } from "@/lib/slots";
@@ -95,7 +96,7 @@ export default async function EditSlotPage({ params }: Params) {
           <dl className="mt-4 grid gap-3 text-sm">
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Status</dt>
-              <dd className="mt-1 text-zinc-300">{serialized.isArchived ? "Archived" : serialized.status}</dd>
+              <dd className="mt-1"><Badge tone={serialized.status === "Archived" ? "neutral" : serialized.status === "Expired" ? "danger" : serialized.status === "Full" ? "warning" : "success"}>{serialized.status}</Badge></dd>
             </div>
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Booked</dt>
@@ -103,7 +104,7 @@ export default async function EditSlotPage({ params }: Params) {
             </div>
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Remaining</dt>
-              <dd className="mt-1 text-zinc-300">{Math.max(0, serialized.capacity - serialized.bookedCount)}</dd>
+              <dd className="mt-1 text-zinc-300">{serialized.remainingSeats}</dd>
             </div>
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Timezone</dt>

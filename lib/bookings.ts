@@ -26,6 +26,20 @@ export type SerializedBooking = {
   bookedAt: string;
 };
 
+export type SerializedBookingSlot = {
+  id: string;
+  title: string;
+  description: string;
+  startTime: string;
+  endTime: string;
+  timezone: string;
+  capacity: number;
+  bookedCount: number;
+  remainingSeats: number;
+  isArchived: boolean;
+  status: "Available" | "Full" | "Expired" | "Archived";
+};
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

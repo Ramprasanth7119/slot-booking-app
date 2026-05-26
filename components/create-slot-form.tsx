@@ -40,8 +40,6 @@ const timezoneOptions = [
   "Australia/Sydney",
 ];
 
-const OWNER_PIN_KEY = "owner-pin";
-
 type CreateSlotFormProps = {
   initialValues?: Partial<SlotFormValues>;
   endpoint?: string;
@@ -51,14 +49,6 @@ type CreateSlotFormProps = {
   clearOnSuccess?: boolean;
   redirectTo?: string;
 };
-
-function getOwnerPin() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return window.sessionStorage.getItem(OWNER_PIN_KEY);
-}
 
 function toDatetimeInputValue(value: string) {
   if (!value) {
@@ -111,14 +101,7 @@ export function CreateSlotForm({
     setMessage(null);
     setIsError(false);
 
-    const ownerPin = getOwnerPin();
-
-    if (!ownerPin) {
-      setIsError(true);
-      setMessage("Owner PIN is missing. Please sign in again.");
-      setIsSubmitting(false);
-      return;
-    }
+    // Authentication is handled server-side via HttpOnly cookie set on login.
 
     // Validate form
     if (!form.title.trim()) {
@@ -188,7 +171,6 @@ export function CreateSlotForm({
         method,
         headers: {
           "Content-Type": "application/json",
-          "x-owner-pin": ownerPin,
         },
         body: JSON.stringify(payload),
       });

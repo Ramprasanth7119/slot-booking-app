@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,17 +22,58 @@ type Booking = {
     timezone: string;
     capacity: number;
     bookedCount: number;
+    remainingSeats: number;
     isArchived: boolean;
+    status: "Available" | "Full" | "Expired" | "Archived";
   };
+};
+
+type AvailableSlot = {
+  id: string;
+  title: string;
+  timeRange: string;
+  timezone: string;
+  remainingSeats: number;
+  status: "Available" | "Full" | "Expired" | "Archived";
 };
 
 export function MyBookingsClient() {
   const [email, setEmail] = useState("");
   const [bookings, setBookings] = useState<Booking[] | null>(null);
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [loading, setLoading] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"error" | "success">("error");
   const [cancellationInProgress, setCancellationInProgress] = useState<Set<string>>(new Set());
+  const [reschedulingInProgress, setReschedulingInProgress] = useState<Set<string>>(new Set());
+  const [rescheduleTargets, setRescheduleTargets] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    void fetchAvailableSlots();
+  }, []);
+
+  async function fetchAvailableSlots() {
+    setAvailabilityLoading(true);
+
+    try {
+      const res = await fetch("/api/slots", { cache: "no-store" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setAvailableSlots([]);
+        return;
+      }
+
+      const slots = ((data.slots ?? []) as AvailableSlot[]).filter((slot) => slot.status === "Available");
+      setAvailableSlots(slots);
+    } catch (error) {
+      console.error(error);
+      setAvailableSlots([]);
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  }
 
   async function fetchBookings(e?: FormEvent<HTMLFormElement>) {
     if (e) e.preventDefault();
@@ -57,6 +98,7 @@ export function MyBookingsClient() {
       } else {
         const loadedBookings = (data.bookings ?? []) as Booking[];
         setBookings(loadedBookings);
+        await fetchAvailableSlots();
         
         if (loadedBookings.length === 0) {
           setMessageType("error");
@@ -113,6 +155,57 @@ export function MyBookingsClient() {
     }
   }
 
+  async function rescheduleBooking(bookingId: string) {
+    const targetSlotId = rescheduleTargets[bookingId];
+
+    if (!targetSlotId) {
+      setMessageType("error");
+      setMessage("Please choose a target slot before rescheduling.");
+      return;
+    }
+
+    setReschedulingInProgress((prev) => new Set(prev).add(bookingId));
+    setMessage(null);
+
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetSlotId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessageType("error");
+        setMessage(data.error ?? "Failed to reschedule booking. Please try again.");
+      } else {
+        setMessageType("success");
+        setMessage("Booking rescheduled successfully.");
+        setRescheduleTargets((current) => {
+          const next = { ...current };
+          delete next[bookingId];
+          return next;
+        });
+        await fetchBookings();
+      }
+    } catch (error) {
+      setMessageType("error");
+      setMessage("Network error while rescheduling. Please try again.");
+      console.error(error);
+    } finally {
+      setReschedulingInProgress((prev) => {
+        const next = new Set(prev);
+        next.delete(bookingId);
+        return next;
+      });
+    }
+  }
+
+  function updateRescheduleTarget(bookingId: string, targetSlotId: string) {
+    setRescheduleTargets((current) => ({ ...current, [bookingId]: targetSlotId }));
+  }
+
   return (
     <div className="space-y-6">
       <form onSubmit={(e) => fetchBookings(e)} className="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -149,6 +242,12 @@ export function MyBookingsClient() {
         </div>
       ) : null}
 
+      {!availabilityLoading && availableSlots.length === 0 ? (
+        <div className="rounded-[1.25rem] border border-white/10 bg-white/[0.03] p-5 text-sm text-zinc-400">
+          No available slots are open right now.
+        </div>
+      ) : null}
+
       {bookings && bookings.length > 0 ? (
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
@@ -170,11 +269,13 @@ export function MyBookingsClient() {
                   })
                 : "Date unavailable";
               
-              const isExpired = b.slot?.endTime 
-                ? new Date(b.slot.endTime) < new Date()
+              const isExpired = b.slot?.status === "Expired" || b.slot?.endTime 
+                ? new Date(b.slot.endTime ?? "").getTime() < Date.now()
                 : false;
+              const isArchived = b.slot?.status === "Archived" || Boolean(b.slot?.isArchived);
               
-              const badgeTone = b.status === "cancelled" ? "warning" : isExpired ? "danger" : "success";
+              const badgeTone = b.status === "cancelled" ? "warning" : isArchived ? "neutral" : isExpired ? "danger" : "success";
+              const rescheduleOptions = availableSlots.filter((slot) => slot.id !== b.slotId);
               
               return (
                 <div 
@@ -196,6 +297,8 @@ export function MyBookingsClient() {
                         <Badge tone={badgeTone}>
                           {b.status === "cancelled" 
                             ? "Cancelled" 
+                            : isArchived 
+                            ? "Archived"
                             : isExpired 
                             ? "Expired" 
                             : "Confirmed"}
@@ -207,14 +310,43 @@ export function MyBookingsClient() {
                     </div>
                     
                     {b.status === "confirmed" && !isExpired ? (
-                      <Button 
-                        variant="ghost"
-                        onClick={() => cancelBooking(bookingId)}
-                        disabled={cancellationInProgress.has(bookingId)}
-                        className="mt-4 sm:mt-0 w-full sm:w-auto"
-                      >
-                        {cancellationInProgress.has(bookingId) ? "Cancelling..." : "Cancel Booking"}
-                      </Button>
+                      <div className="mt-4 space-y-3 sm:mt-0 sm:min-w-64">
+                        <label className="block space-y-2 text-left">
+                          <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Reschedule to</span>
+                          <select
+                            value={rescheduleTargets[bookingId] ?? ""}
+                            onChange={(event) => updateRescheduleTarget(bookingId, event.target.value)}
+                            className="h-11 w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm text-white outline-none shadow-[0_1px_0_rgba(255,255,255,0.03)_inset] transition duration-200 ease-out focus:border-violet-400/35 focus:ring-2 focus:ring-violet-400/15 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={reschedulingInProgress.has(bookingId) || availabilityLoading || rescheduleOptions.length === 0}
+                          >
+                            <option value="">Select a new slot</option>
+                            {rescheduleOptions.map((slot) => (
+                              <option key={slot.id} value={slot.id} className="bg-zinc-900 text-white">
+                                {slot.title} · {slot.timeRange} · {slot.timezone} · {slot.remainingSeats} left
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Button
+                            variant="secondary"
+                            onClick={() => void rescheduleBooking(bookingId)}
+                            disabled={reschedulingInProgress.has(bookingId) || rescheduleOptions.length === 0}
+                            className="w-full sm:w-auto"
+                          >
+                            {reschedulingInProgress.has(bookingId) ? "Rescheduling..." : "Reschedule"}
+                          </Button>
+                          <Button 
+                            variant="ghost"
+                            onClick={() => cancelBooking(bookingId)}
+                            disabled={cancellationInProgress.has(bookingId)}
+                            className="w-full sm:w-auto"
+                          >
+                            {cancellationInProgress.has(bookingId) ? "Cancelling..." : "Cancel Booking"}
+                          </Button>
+                        </div>
+                      </div>
                     ) : null}
                   </div>
                 </div>

@@ -3,6 +3,7 @@ import { serializeSlot, type SlotDocument } from "@/lib/slots";
 import { ObjectId } from "mongodb";
 import { BookForm } from "@/components/book-form";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { buttonClassName } from "@/components/ui/button";
 
 type Params = { params: { slotId: string } };
@@ -71,23 +72,58 @@ export default async function BookPage({ params }: Params) {
   }
 
   const serialized = serializeSlot(slot);
-  const remaining = Math.max(0, serialized.capacity - serialized.bookedCount);
+  const remaining = serialized.remainingSeats;
+  const availabilityTone = serialized.status === "Archived" ? "neutral" : serialized.status === "Full" ? "danger" : serialized.status === "Expired" ? "warning" : "success";
+  const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const isBookable = serialized.status === "Available";
 
   return (
-    <section className="space-y-8 py-8">
-      <div className="space-y-3">
-        <h1 className="text-2xl font-semibold text-white">{serialized.title}</h1>
-        <p className="text-sm text-zinc-400">{serialized.timeRange} · {serialized.timezone}</p>
-        <p className="mt-4 text-sm leading-7 text-zinc-300">{serialized.description}</p>
-      </div>
+    <section className="space-y-8 py-8 sm:py-12">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+        <div className="rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.24)] backdrop-blur-xl sm:p-8">
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge tone={availabilityTone}>{serialized.status}</Badge>
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-medium text-zinc-300">
+              {remaining} remaining
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-medium text-zinc-300">
+              {serialized.timezone}
+            </span>
+          </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-[1.25rem] border border-white/10 bg-white/[0.03] p-6">
-          <h2 className="text-lg font-semibold text-white">Book this slot</h2>
-          <p className="mt-2 text-sm text-zinc-400">Enter your details to confirm your booking.</p>
+          <div className="mt-5 space-y-3">
+            <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">{serialized.title}</h1>
+            <p className="text-sm text-zinc-400 sm:text-base">{serialized.timeRange}</p>
+          </div>
 
-          <div className="mt-4">
-            {serialized.status === "Expired" ? (
+          <p className="mt-5 max-w-3xl text-sm leading-7 text-zinc-300 sm:text-base">{serialized.description}</p>
+
+          <dl className="mt-8 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <dt className="text-xs uppercase tracking-wide text-zinc-500">Capacity</dt>
+              <dd className="mt-2 text-lg font-semibold text-white">{serialized.capacity}</dd>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <dt className="text-xs uppercase tracking-wide text-zinc-500">Booked</dt>
+              <dd className="mt-2 text-lg font-semibold text-white">{serialized.bookedCount}</dd>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <dt className="text-xs uppercase tracking-wide text-zinc-500">Local timezone</dt>
+              <dd className="mt-2 text-lg font-semibold text-white">{localTimeZone}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <aside className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6 sm:p-7">
+          <h2 className="text-lg font-semibold text-white">Booking panel</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">Check the current availability state before confirming a reservation.</p>
+
+          <div className="mt-6 space-y-3">
+            {serialized.status === "Archived" ? (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-zinc-300">
+                This slot is archived and cannot be booked.
+              </div>
+            ) : serialized.status === "Expired" ? (
               <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-200">
                 This slot has expired and is no longer available for booking.
               </div>
@@ -99,41 +135,18 @@ export default async function BookPage({ params }: Params) {
               <BookForm slotId={serialized.id} remaining={remaining} />
             )}
           </div>
-        </div>
 
-        <aside className="rounded-[1.25rem] border border-white/6 bg-white/[0.02] p-6">
-          <h3 className="text-sm font-medium text-zinc-200">Slot Details</h3>
-          <dl className="mt-4 grid gap-3 text-sm">
-            <div>
-              <dt className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Timezone</dt>
-              <dd className="mt-1 text-zinc-300">{serialized.timezone}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Total Capacity</dt>
-              <dd className="mt-1 text-zinc-300">{serialized.capacity} spot{serialized.capacity !== 1 ? 's' : ''}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Already Booked</dt>
-              <dd className="mt-1 text-zinc-300">{serialized.bookedCount}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Spots Available</dt>
-              <dd className="mt-1 font-semibold text-emerald-400">{remaining}</dd>
-            </div>
-            {serialized.status !== "Available" && (
-              <div>
-                <dt className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Status</dt>
-                <dd className="mt-1 capitalize text-amber-300">{serialized.status}</dd>
-              </div>
-            )}
-          </dl>
-
-          <div className="mt-6 pt-6 border-t border-white/10">
-            <Link href="/" className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors">
-              ← Back to all slots
-            </Link>
+          <div className="mt-6 border-t border-white/10 pt-6 text-sm text-zinc-400">
+            Shown in {serialized.timezone}. Your browser timezone is {localTimeZone}.
           </div>
         </aside>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.35rem] border border-white/10 bg-white/[0.03] px-5 py-4 text-sm text-zinc-400">
+        <p>{isBookable ? "This slot is available for booking now." : "This slot is not currently bookable."}</p>
+        <Link href="/" className="text-zinc-300 transition-colors hover:text-white">
+          ← Back to all slots
+        </Link>
       </div>
     </section>
   );

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { getMongoDb } from "@/lib/mongodb";
-import { verifyOwnerPin } from "@/lib/owner-auth";
+import { verifyOwnerRequest } from "@/lib/owner-auth";
 import { type SlotDocument } from "@/lib/slots";
+import { getRemainingSeats, getSlotStatus } from "@/lib/slots";
 import { type BookingDocument } from "@/lib/bookings";
 
 const BOOKINGS = "bookings";
@@ -22,9 +23,7 @@ function toIdString(value: string | import("mongodb").ObjectId | undefined) {
 
 export async function GET(request: Request) {
   try {
-    const ownerPin = request.headers.get("x-owner-pin");
-
-    if (!verifyOwnerPin(ownerPin)) {
+    if (!verifyOwnerRequest(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -58,6 +57,8 @@ export async function GET(request: Request) {
         slotTimezone: slot?.timezone ?? "UTC",
         slotCapacity: slot?.capacity ?? 0,
         slotBookedCount: slot?.bookedCount ?? 0,
+        slotRemainingSeats: slot ? getRemainingSeats(slot) : 0,
+        slotStatus: slot ? getSlotStatus(slot) : "Archived",
         customerName: booking.customerName,
         customerEmail: booking.customerEmail,
         bookingStatus: booking.status,

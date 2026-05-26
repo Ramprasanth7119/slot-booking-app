@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
-type SlotStatus = "Available" | "Full" | "Expired";
+type SlotStatus = "Available" | "Full" | "Expired" | "Archived";
 
 type SlotCardProps = {
   title: string;
@@ -28,8 +28,8 @@ export function SlotCard({
   const isUnavailable = status !== "Available";
   const remaining = Math.max(0, capacity - bookedCount);
   const percentageFull = Math.round((bookedCount / capacity) * 100);
-  
-  const badgeTone = status === "Expired" ? "warning" : status === "Full" ? "danger" : "success";
+
+  const badgeTone = status === "Archived" ? "neutral" : status === "Expired" ? "warning" : status === "Full" ? "danger" : "success";
 
   return (
     <article className={`group relative flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.03))] p-5 shadow-[0_12px_34px_rgba(0,0,0,0.2)] transition-all duration-300 ease-out hover:-translate-y-1 hover:border-white/15 hover:shadow-[0_20px_52px_rgba(0,0,0,0.28)] ${isUnavailable ? "opacity-90" : ""}`.trim()}>
@@ -57,10 +57,12 @@ export function SlotCard({
           <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
             <div 
               className={`h-full transition-all duration-300 ${
-                status === "Available" 
-                  ? "bg-emerald-500/70" 
-                  : status === "Full" 
-                  ? "bg-rose-500/70" 
+                status === "Available"
+                  ? "bg-emerald-500/70"
+                  : status === "Full"
+                  ? "bg-rose-500/70"
+                  : status === "Archived"
+                  ? "bg-zinc-500/70"
                   : "bg-amber-500/70"
               }`}
               style={{ width: `${percentageFull}%` }}
@@ -87,7 +89,7 @@ export function SlotCard({
           className="mt-6 w-full rounded-2xl transition-transform duration-200 active:scale-95" 
           disabled={isUnavailable}
         >
-          {status === "Expired" ? "Expired" : status === "Full" ? "Full" : "Book Now"}
+          {status === "Archived" ? "Archived" : status === "Expired" ? "Expired" : status === "Full" ? "Full" : "Book Now"}
         </Button>
       )}
     </article>

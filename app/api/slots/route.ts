@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getMongoDb } from "@/lib/mongodb";
-import { verifyOwnerPin } from "@/lib/owner-auth";
+import { verifyOwnerRequest } from "@/lib/owner-auth";
 import {
   serializeSlot,
   type SlotDocument,
@@ -32,9 +32,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const ownerPin = request.headers.get("x-owner-pin");
-
-    if (!verifyOwnerPin(ownerPin)) {
+    if (!verifyOwnerRequest(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

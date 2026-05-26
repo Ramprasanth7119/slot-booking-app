@@ -6,8 +6,6 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { buttonClassName } from "@/components/ui/button";
 
-const OWNER_PIN_KEY = "owner-pin";
-
 type AdminBooking = {
   slotId: string;
   slotTitle: string;
@@ -16,6 +14,8 @@ type AdminBooking = {
   slotTimezone: string;
   slotCapacity: number;
   slotBookedCount: number;
+  slotRemainingSeats: number;
+  slotStatus: "Available" | "Full" | "Expired" | "Archived";
   customerName: string;
   customerEmail: string;
   bookingStatus: "confirmed" | "cancelled";
@@ -35,11 +35,7 @@ export default function AdminBookingsPage() {
     setIsError(false);
 
     try {
-      const res = await fetch("/api/owner/bookings", {
-        headers: {
-          "x-owner-pin": window.sessionStorage.getItem(OWNER_PIN_KEY) || "",
-        },
-      });
+      const res = await fetch("/api/owner/bookings", { credentials: "include" });
 
       const data = await res.json();
 
@@ -64,12 +60,6 @@ export default function AdminBookingsPage() {
   }
 
   useEffect(() => {
-    const pin = window.sessionStorage.getItem(OWNER_PIN_KEY);
-    if (!pin) {
-      window.location.href = "/admin";
-      return;
-    }
-
     const timer = window.setTimeout(() => {
       setIsAuthenticated(true);
       void fetchBookings();
@@ -133,6 +123,7 @@ export default function AdminBookingsPage() {
               });
 
               const isExpired = new Date(booking.slotEndTime) < new Date();
+              const slotTone = booking.slotStatus === "Archived" ? "neutral" : booking.slotStatus === "Expired" ? "warning" : booking.slotStatus === "Full" ? "danger" : "success";
               const badgeTone = booking.bookingStatus === "cancelled" ? "warning" : isExpired ? "danger" : "success";
 
               return (
@@ -143,6 +134,8 @@ export default function AdminBookingsPage() {
                       <p className="mt-1 text-sm text-zinc-400">{slotStart}</p>
                       <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500">
                         <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">{booking.slotBookedCount}/{booking.slotCapacity} booked</span>
+                        <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">{booking.slotRemainingSeats} remaining</span>
+                        <Badge tone={slotTone}>{booking.slotStatus}</Badge>
                         <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">{booking.slotTimezone}</span>
                       </div>
                     </div>

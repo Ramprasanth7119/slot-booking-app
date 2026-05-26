@@ -7,14 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonClassName } from "@/components/ui/button";
 import type { SerializedSlot } from "@/lib/slots";
 
-const OWNER_PIN_KEY = "owner-pin";
-
 type AdminSlotManagerProps = {
   initialSlots: SerializedSlot[];
 };
 
 function getStatusTone(slot: SerializedSlot) {
-  if (slot.isArchived) {
+  if (slot.status === "Archived") {
     return "neutral" as const;
   }
 
@@ -53,7 +51,6 @@ export function AdminSlotManager({ initialSlots }: AdminSlotManagerProps) {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-owner-pin": window.sessionStorage.getItem(OWNER_PIN_KEY) || "",
         },
         body: JSON.stringify(payload),
       });
@@ -69,7 +66,17 @@ export function AdminSlotManager({ initialSlots }: AdminSlotManagerProps) {
       setSlots((current) =>
         current.map((slot) =>
           slot.id === slotId
-            ? { ...slot, isArchived: typeof payload.isArchived === "boolean" ? payload.isArchived : slot.isArchived }
+            ? {
+                ...slot,
+                isArchived: typeof payload.isArchived === "boolean" ? payload.isArchived : slot.isArchived,
+                status: typeof payload.isArchived === "boolean"
+                  ? payload.isArchived
+                    ? "Archived"
+                    : slot.status === "Archived"
+                      ? "Available"
+                      : slot.status
+                  : slot.status,
+              }
             : slot
         )
       );
@@ -83,7 +90,7 @@ export function AdminSlotManager({ initialSlots }: AdminSlotManagerProps) {
   }
 
   async function deleteSlot(slotId: string) {
-    if (!window.confirm("Delete this slot permanently? Existing bookings will still remain on the booking records.")) {
+    if (!window.confirm("Soft delete this slot? It will be archived and hidden from the public booking flow.")) {
       return;
     }
 
@@ -92,12 +99,7 @@ export function AdminSlotManager({ initialSlots }: AdminSlotManagerProps) {
     setIsError(false);
 
     try {
-      const response = await fetch(`/api/slots/${slotId}`, {
-        method: "DELETE",
-        headers: {
-          "x-owner-pin": window.sessionStorage.getItem(OWNER_PIN_KEY) || "",
-        },
-      });
+      const response = await fetch(`/api/slots/${slotId}`, { method: "DELETE" });
 
       const data = (await response.json()) as { error?: string };
 
@@ -107,8 +109,10 @@ export function AdminSlotManager({ initialSlots }: AdminSlotManagerProps) {
         return;
       }
 
-      setSlots((current) => current.filter((slot) => slot.id !== slotId));
-      setMessage("Slot deleted successfully.");
+      setSlots((current) =>
+        current.map((slot) => (slot.id === slotId ? { ...slot, isArchived: true, status: "Archived" as const } : slot))
+      );
+      setMessage("Slot archived successfully.");
     } catch {
       setIsError(true);
       setMessage("Network error while deleting this slot.");
@@ -130,6 +134,28 @@ export function AdminSlotManager({ initialSlots }: AdminSlotManagerProps) {
 
   return (
     <div className="space-y-5">
+      <div className="flex gap-3 items-center">
+        <button
+          onClick={async () => {
+            try {
+              const res = await fetch("/api/admin/setup-indexes", { method: "POST" });
+              if (!res.ok) {
+                const data = await res.json();
+                setIsError(true);
+                setMessage(data.error ?? "Failed to create indexes.");
+                return;
+              }
+              setMessage("Indexes created successfully.");
+            } catch {
+              setIsError(true);
+              setMessage("Network error while creating indexes.");
+            }
+          }}
+          className={buttonClassName("ghost")}
+        >
+          Run Indexes
+        </button>
+      </div>
       <div className="flex flex-wrap gap-2 text-xs font-medium uppercase tracking-widest text-zinc-500">
         <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">{slots.length} total</span>
         <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">{totals.active} active</span>
@@ -149,7 +175,7 @@ export function AdminSlotManager({ initialSlots }: AdminSlotManagerProps) {
 
       <div className="grid gap-4">
         {slots.map((slot) => {
-          const remaining = Math.max(0, slot.capacity - slot.bookedCount);
+          const remaining = slot.remainingSeats;
           const tone = getStatusTone(slot);
 
           return (
@@ -158,7 +184,7 @@ export function AdminSlotManager({ initialSlots }: AdminSlotManagerProps) {
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-lg font-semibold text-white">{slot.title}</h2>
-                    <Badge tone={tone}>{slot.isArchived ? "Archived" : slot.status}</Badge>
+                    <Badge tone={tone}>{slot.status}</Badge>
                   </div>
                   <p className="max-w-3xl text-sm leading-7 text-zinc-400">{slot.description}</p>
                   <p className="text-sm text-zinc-300">{slot.timeRange} · {slot.timezone}</p>
@@ -178,9 +204,9 @@ export function AdminSlotManager({ initialSlots }: AdminSlotManagerProps) {
                     variant="secondary"
                     className="h-11 px-4 text-sm"
                     disabled={activeSlotId === slot.id}
-                    onClick={() => void submitSlotChange(slot.id, { isArchived: !slot.isArchived }, slot.isArchived ? "Slot restored successfully." : "Slot archived successfully.")}
+                    onClick={() => void submitSlotChange(slot.id, { isArchived: slot.status !== "Archived" }, slot.status === "Archived" ? "Slot restored successfully." : "Slot archived successfully.")}
                   >
-                    {activeSlotId === slot.id ? (slot.isArchived ? "Restoring..." : "Archiving...") : slot.isArchived ? "Restore" : "Archive"}
+                    {activeSlotId === slot.id ? (slot.status === "Archived" ? "Restoring..." : "Archiving...") : slot.status === "Archived" ? "Restore" : "Archive"}
                   </Button>
                   <Button
                     type="button"
@@ -189,7 +215,7 @@ export function AdminSlotManager({ initialSlots }: AdminSlotManagerProps) {
                     disabled={activeSlotId === slot.id}
                     onClick={() => void deleteSlot(slot.id)}
                   >
-                    {activeSlotId === slot.id ? "Deleting..." : "Delete"}
+                    {activeSlotId === slot.id ? "Archiving..." : "Remove"}
                   </Button>
                 </div>
               </div>

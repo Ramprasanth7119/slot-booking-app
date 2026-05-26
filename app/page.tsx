@@ -13,7 +13,7 @@ type SlotResponse = {
   timezone: string;
   bookedCount: number;
   capacity: number;
-  status: "Available" | "Full" | "Expired";
+  status: "Available" | "Full" | "Expired" | "Archived";
 };
 
 async function getSlots(): Promise<SlotResponse[]> {

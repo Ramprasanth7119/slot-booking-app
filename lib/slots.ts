@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
 
-export type SlotStatus = "Available" | "Full" | "Expired";
+export type SlotStatus = "Available" | "Full" | "Expired" | "Archived";
 
 export type SlotInput = {
   title: string;
@@ -20,6 +20,7 @@ export type SlotDocument = SlotInsertInput & {
   _id?: ObjectId;
   bookedCount: number;
   isArchived: boolean;
+  deletedAt?: Date | null;
   createdAt: Date;
 };
 
@@ -33,6 +34,7 @@ export type SerializedSlot = {
   timezone: string;
   capacity: number;
   bookedCount: number;
+  remainingSeats: number;
   isArchived: boolean;
   createdAt: string;
   status: SlotStatus;
@@ -112,7 +114,18 @@ export function validateSlotInput(body: unknown): SlotValidationResult {
   };
 }
 
-export function getSlotStatus(slot: Pick<SlotDocument, "startTime" | "endTime" | "capacity" | "bookedCount">, now = new Date()): SlotStatus {
+export function getRemainingSeats(slot: Pick<SlotDocument, "capacity" | "bookedCount">) {
+  return Math.max(0, slot.capacity - slot.bookedCount);
+}
+
+export function getSlotStatus(
+  slot: Pick<SlotDocument, "startTime" | "endTime" | "capacity" | "bookedCount" | "isArchived">,
+  now = new Date()
+): SlotStatus {
+  if (slot.isArchived) {
+    return "Archived";
+  }
+
   if (slot.endTime.getTime() <= now.getTime()) {
     return "Expired";
   }
@@ -146,6 +159,7 @@ export function formatSlotTimeRange(startTime: Date, endTime: Date, timezone: st
 
 export function serializeSlot(slot: SlotDocument) {
   const status = getSlotStatus(slot);
+  const remainingSeats = getRemainingSeats(slot);
 
   return {
     id: slot._id?.toString() ?? "",
@@ -157,6 +171,7 @@ export function serializeSlot(slot: SlotDocument) {
     timezone: slot.timezone,
     capacity: slot.capacity,
     bookedCount: slot.bookedCount,
+    remainingSeats,
     isArchived: slot.isArchived,
     createdAt: slot.createdAt.toISOString(),
     status,

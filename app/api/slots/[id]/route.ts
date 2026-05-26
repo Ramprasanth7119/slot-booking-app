@@ -2,7 +2,7 @@ import { ObjectId } from "mongodb";
 import { NextResponse } from "next/server";
 
 import { getMongoDb } from "@/lib/mongodb";
-import { verifyOwnerPin } from "@/lib/owner-auth";
+import { verifyOwnerRequest } from "@/lib/owner-auth";
 import { serializeSlot, type SlotDocument, validateSlotInput } from "@/lib/slots";
 
 const SLOTS = "slots";
@@ -47,9 +47,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    const ownerPin = request.headers.get("x-owner-pin");
-
-    if (!verifyOwnerPin(ownerPin)) {
+    if (!verifyOwnerRequest(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -67,10 +65,22 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Slot not found." }, { status: 404 });
     }
 
+    if (currentSlot.endTime.getTime() <= Date.now()) {
+      return NextResponse.json({ error: "Expired slots cannot be edited." }, { status: 400 });
+    }
+
     const body = await request.json();
 
     if (isPlainObject(body) && Object.keys(body).length === 1 && typeof body.isArchived === "boolean") {
-      await db.collection<SlotDocument>(SLOTS).updateOne({ _id: objectId }, { $set: { isArchived: body.isArchived } });
+      await db.collection<SlotDocument>(SLOTS).updateOne(
+        { _id: objectId },
+        {
+          $set: {
+            isArchived: body.isArchived,
+            deletedAt: body.isArchived ? new Date() : null,
+          },
+        }
+      );
 
       const updatedSlot = await db.collection<SlotDocument>(SLOTS).findOne({ _id: objectId });
 
@@ -125,9 +135,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 export async function DELETE(request: Request, context: RouteContext) {
   try {
-    const ownerPin = request.headers.get("x-owner-pin");
-
-    if (!verifyOwnerPin(ownerPin)) {
+    if (!verifyOwnerRequest(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -139,13 +147,23 @@ export async function DELETE(request: Request, context: RouteContext) {
     }
 
     const db = await getMongoDb();
-    const result = await db.collection<SlotDocument>(SLOTS).deleteOne({ _id: objectId });
+    const result = await db.collection<SlotDocument>(SLOTS).updateOne(
+      { _id: objectId },
+      {
+        $set: {
+          isArchived: true,
+          deletedAt: new Date(),
+        },
+      }
+    );
 
-    if (result.deletedCount === 0) {
+    if (result.matchedCount === 0) {
       return NextResponse.json({ error: "Slot not found." }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true });
+    const updatedSlot = await db.collection<SlotDocument>(SLOTS).findOne({ _id: objectId });
+
+    return NextResponse.json({ slot: updatedSlot ? serializeSlot(updatedSlot) : null });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to delete slot." }, { status: 500 });
   }
