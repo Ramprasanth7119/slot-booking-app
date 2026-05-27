@@ -16,25 +16,41 @@ export default function AdminPage() {
       <div className="grid gap-5 lg:grid-cols-2">
         <article className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6 transition-all hover:-translate-y-1 hover:border-white/15 hover:bg-white/[0.05]">
           <h2 className="text-lg font-semibold text-white">Create New Slot</h2>
-          <p className="mt-2 text-sm leading-6 text-zinc-400">Add a new time slot with your preferred capacity, timing, and timezone.</p>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">Add a new time slot with venue, conductor, capacity, timing, and timezone.</p>
           <Link href="/admin/create-slot" className={`${buttonClassName("primary")} mt-4 inline-flex`}>
             Create Slot
           </Link>
         </article>
 
         <article className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6 transition-all hover:-translate-y-1 hover:border-white/15 hover:bg-white/[0.05]">
-          <h2 className="text-lg font-semibold text-white">View Bookings</h2>
-          <p className="mt-2 text-sm leading-6 text-zinc-400">Review customer reservations across your slots.</p>
+          <h2 className="text-lg font-semibold text-white">Manage Slots</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">Update slot details, archive or remove slots, and inspect live availability.</p>
+          <Link href="/admin/slots" className={`${buttonClassName("primary")} mt-4 inline-flex`}>
+            Open Slot Manager
+          </Link>
+        </article>
+
+        <article className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6 transition-all hover:-translate-y-1 hover:border-white/15 hover:bg-white/[0.05]">
+          <h2 className="text-lg font-semibold text-white">Manage Bookings</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">Review customer reservations and manage booking cancellations.</p>
           <Link href="/admin/bookings" className={`${buttonClassName("primary")} mt-4 inline-flex`}>
             View Bookings
+          </Link>
+        </article>
+
+        <article className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6 transition-all hover:-translate-y-1 hover:border-white/15 hover:bg-white/[0.05]">
+          <h2 className="text-lg font-semibold text-white">Manage People</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-400">Monitor booking holders, reschedules, and attendance across all slots.</p>
+          <Link href="/admin/bookings" className={`${buttonClassName("primary")} mt-4 inline-flex`}>
+            Open People View
           </Link>
         </article>
       </div>
 
       <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6">
-        <p className="text-sm font-medium text-white">Next step</p>
+        <p className="text-sm font-medium text-white">Management overview</p>
         <p className="mt-2 text-sm leading-7 text-zinc-400">
-          We’ll add update, archive, and delete slot management next so admin and customer surfaces stay separated cleanly.
+          Slot CRUD, archive controls, booking management, and venue/conductor metadata are available from the dashboard and slot manager.
         </p>
       </div>
     </section>

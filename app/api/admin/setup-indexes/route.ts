@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getMongoDb } from "@/lib/mongodb";
 import { verifyOwnerRequest } from "@/lib/owner-auth";
+import { getSlotCollectionValidator } from "@/lib/slots";
 
 const BOOKINGS = "bookings";
 const SLOTS = "slots";
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
     }
 
     const db = await getMongoDb();
+    const slotValidator = getSlotCollectionValidator();
 
     // Create useful indexes
     await db.collection(BOOKINGS).createIndex({ customerEmail: 1 });
@@ -27,6 +29,27 @@ export async function POST(request: Request) {
 
     await db.collection(SLOTS).createIndex({ startTime: 1 });
     await db.collection(SLOTS).createIndex({ isArchived: 1 });
+
+    try {
+      await db.command({
+        collMod: SLOTS,
+        validator: slotValidator,
+        validationLevel: "moderate",
+        validationAction: "error",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      if (message.includes("NamespaceNotFound") || message.includes("ns not found")) {
+        await db.createCollection(SLOTS, {
+          validator: slotValidator,
+          validationLevel: "moderate",
+          validationAction: "error",
+        });
+      } else {
+        throw error;
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

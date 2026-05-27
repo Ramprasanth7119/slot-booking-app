@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getDemoOwnerBookings, shouldUseDemoData } from "@/lib/demo-data";
 import { getMongoDb } from "@/lib/mongodb";
 import { verifyOwnerRequest } from "@/lib/owner-auth";
 import { type SlotDocument } from "@/lib/slots";
@@ -52,6 +53,8 @@ export async function GET(request: Request) {
       return {
         slotId: toIdString(booking.slotId),
         slotTitle: slot?.title ?? "(Slot deleted)",
+        slotVenueName: slot?.venueName ?? "",
+        slotConductorName: slot?.conductorName ?? "",
         slotStartTime: slot?.startTime?.toISOString() ?? "",
         slotEndTime: slot?.endTime?.toISOString() ?? "",
         slotTimezone: slot?.timezone ?? "UTC",
@@ -68,6 +71,10 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ bookings });
   } catch (error) {
+    if (shouldUseDemoData(error)) {
+      return NextResponse.json({ bookings: getDemoOwnerBookings() });
+    }
+
     return NextResponse.json(
       {
         error:

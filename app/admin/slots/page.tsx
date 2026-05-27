@@ -17,7 +17,7 @@ export default async function AdminSlotsPage() {
           <p className="text-sm font-medium uppercase tracking-[0.28em] text-sky-300/80">Admin / Slots</p>
           <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Manage Slots</h1>
           <p className="max-w-2xl text-sm leading-7 text-zinc-400 sm:text-base">
-            Review every slot, archive inactive ones, update future availability, or remove entries you no longer need.
+            Review every slot, update details, archive inactive ones, or remove entries you no longer need.
           </p>
         </div>
 

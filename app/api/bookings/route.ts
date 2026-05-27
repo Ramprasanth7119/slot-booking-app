@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 
-import { getMongoDb, getMongoClient } from "@/lib/mongodb";
+import {
+  createDemoBooking,
+  getDemoBookingsByEmail,
+  shouldUseDemoData,
+} from "@/lib/demo-data";
+import { getMongoDb } from "@/lib/mongodb";
 import { validateBookingInput, serializeBooking, type BookingDocument, type BookingStatus } from "@/lib/bookings";
 import { getRemainingSeats, getSlotStatus, type SlotDocument } from "@/lib/slots";
 
@@ -19,6 +24,8 @@ type BookingLookupRow = {
     _id?: ObjectId;
     title?: string;
     description?: string;
+    venueName?: string;
+    conductorName?: string;
     startTime?: Date;
     endTime?: Date;
     timezone?: string;
@@ -80,6 +87,8 @@ export async function GET(request: Request) {
             id: toIdString(row.slot._id),
             title: row.slot.title ?? "",
             description: row.slot.description ?? "",
+            venueName: row.slot.venueName ?? "",
+            conductorName: row.slot.conductorName ?? "",
             startTime: row.slot.startTime ? row.slot.startTime.toISOString() : "",
             endTime: row.slot.endTime ? row.slot.endTime.toISOString() : "",
             timezone: row.slot.timezone ?? "UTC",
@@ -97,11 +106,30 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ bookings: serialized });
   } catch (error) {
+    if (shouldUseDemoData(error)) {
+      const url = new URL(request.url);
+      const email = url.searchParams.get("email")?.toLowerCase();
+
+      if (!email) {
+        return NextResponse.json({ error: "Email query is required." }, { status: 400 });
+      }
+
+      return NextResponse.json({ bookings: getDemoBookingsByEmail(email) });
+    }
+
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to fetch bookings." }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
+  let bookingInput:
+    | {
+        slotId: string;
+        customerName: string;
+        customerEmail: string;
+      }
+    | null = null;
+
   try {
     const body = await request.json();
     const validation = validateBookingInput(body);
@@ -110,89 +138,84 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    const { slotId, customerName, customerEmail } = validation.data;
-
-    const client = await getMongoClient();
+    bookingInput = validation.data;
+    const { slotId, customerName, customerEmail } = bookingInput;
     const db = await getMongoDb();
 
-    // Start transaction session
-    const session = client.startSession();
-
     const now = new Date();
+    const slot = await db.collection<SlotDocument>(SLOTS).findOne({ _id: new ObjectId(slotId) });
 
-    let bookingResult: BookingDocument | null = null;
+    if (!slot) {
+      return NextResponse.json({ error: "Slot not found." }, { status: 404 });
+    }
+
+    const slotStatus = getSlotStatus(slot, now);
+
+    if (slotStatus === "Archived") {
+      return NextResponse.json({ error: "Slot is archived." }, { status: 400 });
+    }
+
+    if (slotStatus === "Expired") {
+      return NextResponse.json({ error: "Slot has already ended." }, { status: 400 });
+    }
+
+    if (slotStatus === "Full") {
+      return NextResponse.json({ error: "Slot is full or no longer available." }, { status: 409 });
+    }
+
+    const existing = await db.collection(BOOKINGS).findOne({ slotId: slot._id, customerEmail, status: "confirmed" });
+    if (existing) {
+      return NextResponse.json({ error: "You already have a booking for this slot." }, { status: 409 });
+    }
+
+    const reservedSlot = await db.collection<SlotDocument>(SLOTS).findOneAndUpdate(
+      { _id: slot._id, isArchived: false, endTime: { $gt: now }, bookedCount: { $lt: slot.capacity } },
+      { $inc: { bookedCount: 1 } },
+      { returnDocument: "after" }
+    );
+
+    if (!reservedSlot) {
+      return NextResponse.json({ error: "Slot is full or no longer available." }, { status: 409 });
+    }
+
+    const bookingDoc = {
+      slotId: slot._id,
+      customerName,
+      customerEmail,
+      status: "confirmed",
+      bookedAt: new Date(),
+    };
 
     try {
-      await session.withTransaction(async () => {
-        // Ensure slot exists with session
-        const slot = await db.collection<SlotDocument>(SLOTS).findOne({ _id: new ObjectId(slotId) }, { session });
+      const res = await db.collection(BOOKINGS).insertOne(bookingDoc);
+      const bookingResult = { ...bookingDoc, _id: res.insertedId } as BookingDocument;
 
-        if (!slot) {
-          throw new Error("SLOT_NOT_FOUND");
-        }
+      return NextResponse.json({ booking: serializeBooking(bookingResult) }, { status: 201 });
+    } catch (error) {
+      await db.collection<SlotDocument>(SLOTS).updateOne({ _id: slot._id }, { $inc: { bookedCount: -1 } });
 
-        const slotStatus = getSlotStatus(slot, now);
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("duplicate key")) {
+        return NextResponse.json({ error: "You already have a booking for this slot." }, { status: 409 });
+      }
 
-        if (slotStatus === "Archived") {
-          throw new Error("SLOT_ARCHIVED");
-        }
-
-        if (slotStatus === "Expired") {
-          throw new Error("SLOT_ENDED");
-        }
-
-        if (slotStatus === "Full") {
-          throw new Error("SLOT_FULL");
-        }
-
-        // Prevent duplicate confirmed booking for same slot + email
-        const existing = await db.collection(BOOKINGS).findOne({ slotId: slot._id, customerEmail, status: "confirmed" }, { session });
-        if (existing) {
-          throw new Error("DUPLICATE_BOOKING");
-        }
-
-        // Atomic capacity increment
-        const reservedSlot = await db.collection<SlotDocument>(SLOTS).findOneAndUpdate(
-          { _id: slot._id, isArchived: false, endTime: { $gt: now }, bookedCount: { $lt: slot.capacity } },
-          { $inc: { bookedCount: 1 } },
-          { returnDocument: "after", session }
-        );
-
-        if (!reservedSlot) {
-          throw new Error("SLOT_FULL");
-        }
-
-        const bookingDoc = {
-          slotId: slot._id,
-          customerName,
-          customerEmail,
-          status: "confirmed",
-          bookedAt: new Date(),
-        };
-
-        const res = await db.collection(BOOKINGS).insertOne(bookingDoc, { session });
-        bookingResult = { ...bookingDoc, _id: res.insertedId } as BookingDocument;
-      });
-    } catch (err) {
-      // Translate known errors to HTTP responses
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg === "SLOT_NOT_FOUND") return NextResponse.json({ error: "Slot not found." }, { status: 404 });
-      if (msg === "SLOT_ARCHIVED") return NextResponse.json({ error: "Slot is archived." }, { status: 400 });
-      if (msg === "SLOT_ENDED") return NextResponse.json({ error: "Slot has already ended." }, { status: 400 });
-      if (msg === "DUPLICATE_BOOKING") return NextResponse.json({ error: "You already have a booking for this slot." }, { status: 409 });
-      if (msg === "SLOT_FULL") return NextResponse.json({ error: "Slot is full or no longer available." }, { status: 409 });
-
-      return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to create booking." }, { status: 500 });
-    } finally {
-      await session.endSession();
+      return NextResponse.json({ error: message || "Failed to create booking." }, { status: 500 });
     }
-
-    if (!bookingResult) {
-      return NextResponse.json({ error: "Failed to create booking." }, { status: 500 });
-    }
-
-    return NextResponse.json({ booking: serializeBooking(bookingResult) }, { status: 201 });
   } catch (error) {
+    if (shouldUseDemoData(error)) {
+      if (!bookingInput) {
+        return NextResponse.json({ error: "Failed to create booking." }, { status: 500 });
+      }
+
+      const result = createDemoBooking(bookingInput.slotId, bookingInput.customerName, bookingInput.customerEmail);
+
+      if (!result.success) {
+        return NextResponse.json({ error: result.error }, { status: result.status });
+      }
+
+      return NextResponse.json({ booking: result.booking }, { status: 201 });
+    }
+
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to create booking." }, { status: 500 });
   }
 }

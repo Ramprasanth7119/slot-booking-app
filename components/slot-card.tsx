@@ -7,6 +7,8 @@ type SlotStatus = "Available" | "Full" | "Expired" | "Archived";
 type SlotCardProps = {
   title: string;
   description: string;
+  venueName: string;
+  conductorName: string;
   timeRange: string;
   timezone: string;
   bookedCount: number;
@@ -18,6 +20,8 @@ type SlotCardProps = {
 export function SlotCard({ 
   title, 
   description, 
+  venueName,
+  conductorName,
   timeRange, 
   timezone, 
   bookedCount, 
@@ -45,6 +49,7 @@ export function SlotCard({
       </div>
 
       <p className="mt-4 text-sm font-medium text-zinc-200">{timeRange}</p>
+      <p className="mt-1 text-xs uppercase tracking-[0.24em] text-zinc-500">{venueName} · {conductorName}</p>
       <p className="mt-2 text-sm leading-7 text-zinc-400 line-clamp-2">{description}</p>
 
       <div className="mt-auto pt-4 space-y-3">

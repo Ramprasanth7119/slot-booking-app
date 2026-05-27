@@ -1,4 +1,5 @@
 import { getMongoDb } from "@/lib/mongodb";
+import { getDemoSlotRecordById } from "@/lib/demo-data";
 import { serializeSlot, type SlotDocument } from "@/lib/slots";
 import { ObjectId } from "mongodb";
 import { BookForm } from "@/components/book-form";
@@ -8,32 +9,43 @@ import { buttonClassName } from "@/components/ui/button";
 
 type Params = { params: { slotId: string } };
 
-type LooseSlotRecord = SlotDocument & {
-  _id?: string | ObjectId;
-  id?: string;
-};
+const fastLookupTimeoutMs = 300;
 
-export default async function BookPage({ params }: Params) {
-  const { slotId } = params;
-
-  const db = await getMongoDb();
-  let slot: SlotDocument | null = null;
+async function readSlotWithFastFallback(slotId: string) {
+  const demoSlot = getDemoSlotRecordById(slotId);
 
   try {
-    slot = await db.collection<SlotDocument>("slots").findOne({ _id: new ObjectId(slotId) });
+    const dbPromise = getMongoDb();
+    const timeoutPromise = new Promise<null>((resolve) => {
+      setTimeout(() => resolve(null), fastLookupTimeoutMs);
+    });
+
+    const db = await Promise.race([dbPromise, timeoutPromise]);
+
+    if (!db) {
+      return demoSlot;
+    }
+
+    const slot = await db.collection<SlotDocument>("slots").findOne({ _id: new ObjectId(slotId) });
+
+    if (slot) {
+      return slot;
+    }
   } catch {
-    // ignore invalid ObjectId
+    // fall through to demo data below
   }
 
-  if (!slot) {
-    const rawSlots = db.collection<LooseSlotRecord>("slots");
-    slot = (await rawSlots.findOne({ _id: slotId } as never)) as SlotDocument | null;
+  if (demoSlot) {
+    return demoSlot;
   }
 
-  if (!slot) {
-    const rawSlots = db.collection<LooseSlotRecord>("slots");
-    slot = (await rawSlots.findOne({ id: slotId } as never)) as SlotDocument | null;
-  }
+  return null;
+}
+
+export default async function BookPage({ params }: Params) {
+  const { slotId } = await params;
+
+  const slot = await readSlotWithFastFallback(slotId);
 
   if (!slot) {
     return (
@@ -71,11 +83,27 @@ export default async function BookPage({ params }: Params) {
     );
   }
 
+  const displaySlot = slot as SlotDocument & {
+    venueName?: string;
+    conductorName?: string;
+    roomLabel?: string;
+    audience?: string;
+    highlights?: string[];
+    category?: string;
+    format?: string;
+    featured?: boolean;
+    meetingUrl?: string | null;
+  };
+
   const serialized = serializeSlot(slot);
   const remaining = serialized.remainingSeats;
   const availabilityTone = serialized.status === "Archived" ? "neutral" : serialized.status === "Full" ? "danger" : serialized.status === "Expired" ? "warning" : "success";
   const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const isBookable = serialized.status === "Available";
+  const venueName = displaySlot.venueName?.trim() || displaySlot.roomLabel?.trim() || "To be announced";
+  const conductorName = displaySlot.conductorName?.trim() || "To be announced";
+  const audience = displaySlot.audience?.trim() || "General audience";
+  const highlights = displaySlot.highlights?.filter(Boolean).slice(0, 3) ?? [];
 
   return (
     <section className="space-y-8 py-8 sm:py-12">
@@ -94,9 +122,27 @@ export default async function BookPage({ params }: Params) {
           <div className="mt-5 space-y-3">
             <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">{serialized.title}</h1>
             <p className="text-sm text-zinc-400 sm:text-base">{serialized.timeRange}</p>
+            <p className="text-sm text-zinc-400">Venue: {venueName} · Conductor: {conductorName}</p>
           </div>
 
           <p className="mt-5 max-w-3xl text-sm leading-7 text-zinc-300 sm:text-base">{serialized.description}</p>
+
+          <div className="mt-6 flex flex-wrap gap-2 text-xs text-zinc-400">
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">{displaySlot.category ?? "Consultation"}</span>
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">{displaySlot.format ?? "In-person"}</span>
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Audience: {audience}</span>
+          </div>
+
+          {highlights.length ? (
+            <div className="mt-6 rounded-[1.35rem] border border-white/10 bg-white/[0.03] p-5">
+              <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Highlights</p>
+              <ul className="mt-3 space-y-2 text-sm leading-6 text-zinc-300">
+                {highlights.map((item) => (
+                  <li key={item}>• {item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           <dl className="mt-8 grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">

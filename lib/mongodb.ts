@@ -1,6 +1,13 @@
 import { MongoClient } from "mongodb";
 
 const mongoDbName = process.env.MONGODB_DB ?? "slotbook";
+const mongoClientOptions = {
+  serverSelectionTimeoutMS: 500,
+  connectTimeoutMS: 500,
+  socketTimeoutMS: 1000,
+  waitQueueTimeoutMS: 500,
+  directConnection: true,
+};
 
 type MongoClientCache = {
   client: MongoClient | null;
@@ -27,7 +34,7 @@ export async function getMongoClient() {
   }
 
   if (!cachedClient.promise) {
-    const client = new MongoClient(mongoUri);
+    const client = new MongoClient(mongoUri, mongoClientOptions);
     cachedClient.promise = client.connect();
   }
 

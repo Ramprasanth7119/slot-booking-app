@@ -1,368 +1,262 @@
-# SlotBook - Modern Slot & Session Booking System
+# SlotBook
 
-A full-stack booking application built with Next.js, MongoDB, and TypeScript. Designed for small businesses (clinics, salons, tutors, consultants, co-working spaces) to manage time slot availability and customer reservations.
+SlotBook is a modern slot booking application built with Next.js, React, TypeScript, MongoDB, Zustand, and TanStack Query. It is designed for demos and small real-world booking flows such as consultations, workshops, sessions, appointments, and private events.
 
-## Features
+The app includes a public booking site, an owner/admin workspace, live availability previews, booking management, dark and light theme support, and demo-safe fallback data so the UI can still be shown even if local MongoDB is unavailable.
 
-### Customer Features
-- **Browse Available Slots**: Real-time slot listing with capacity and availability status
-- **Book Slots**: Secure booking with atomic transaction protection (prevent overbooking)
-- **View My Bookings**: Email-based lookup to view all personal bookings
-- **Cancel Bookings**: Easy cancellation with automatic capacity adjustment
-- **Timezone Support**: Display slots in customer's preferred timezone
+## What You Can Do
 
-### Owner Features
-- **PIN-Based Authentication**: Secure session-based access to owner workspace
-- **Create Slots**: Publish new time slots with custom capacity and timezone
-- **View All Bookings**: Monitor who booked what and when
-- **Manage Slots**: Track availability and booking status in real-time
-- **Dashboard**: Comprehensive view of all operations
+- Browse available slots on the public homepage.
+- Open a slot and book it from the public booking page.
+- See live availability updates and slot details such as venue, conductor, timezone, audience, and highlights.
+- Switch between dark and light themes using the top-right toggle.
+- View your bookings by email on the My Bookings page.
+- Sign in as an owner to create and manage slots.
+- Inspect owner booking activity.
+- Seed rich sample slot data into MongoDB for a better demo.
+
+## Main Features
+
+### Public Experience
+- Home page with featured live capability panels.
+- Slot cards showing title, description, venue, conductor, time, capacity, and status.
+- Slot booking page with a live availability panel.
+- Booking form validation for name and email.
+- Booking success redirects back to the public site.
+- Theme toggle with persistent light and dark mode.
+
+### Live and Demo Behavior
+- Public slot lists refresh automatically with TanStack Query.
+- Live availability panels update without a page reload.
+- Requests fail fast instead of waiting for long Mongo connection timeouts.
+- When MongoDB is unavailable, the app falls back to in-memory demo data so the demo can still run.
+- Demo slots include richer sample content for a more polished presentation.
+
+### Owner and Admin Experience
+- Owner workspace under `/owner`.
+- Admin workspace under `/admin`.
+- Slot creation forms for publishing new availability.
+- Slot management and booking oversight views.
+- PIN-based access control for owner/admin actions.
+
+### Shared State and Data Fetching
+- Zustand powers shared client state for the theme toggle.
+- TanStack Query handles live slot refreshes and booking availability updates.
+- The app uses React Query provider wiring at the root layout.
 
 ## Tech Stack
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Frontend** | React 19, Next.js 16 | Server components + interactive UI |
-| **Language** | TypeScript | Full type safety |
-| **Database** | MongoDB | Flexible schema, atomic operations |
-| **Styling** | Tailwind CSS + Custom components | Modern, scalable UI |
-| **Backend** | Next.js Route Handlers | Unified API layer |
-| **Authentication** | PIN-based (Session Storage) | Simple, demo-appropriate |
+- Next.js 16 App Router
+- React 19
+- TypeScript
+- MongoDB
+- Zustand
+- TanStack Query
+- Tailwind CSS
+- Custom UI components
 
-## Getting Started
+## Project Structure
 
-### Prerequisites
-- Node.js 18+ and npm
-- MongoDB Atlas account (or local MongoDB)
-- Git for version control
+- `app/` - Routes, pages, layouts, and API route handlers.
+- `components/` - Reusable UI and feature components.
+- `lib/` - MongoDB helpers, domain validation, demo data, and auth helpers.
+- `scripts/` - Utility scripts such as the slot seeder.
+- `docs/` - Architecture notes and roadmap.
+- `public/` - Static assets.
 
-### 1. Clone & Setup
+## Key Routes
+
+### Public Pages
+- `/` - Homepage with slot listings and live feature showcase.
+- `/book/[slotId]` - Book a specific slot.
+- `/my-bookings` - Look up bookings by email.
+
+### Owner and Admin Pages
+- `/owner` - Owner dashboard.
+- `/owner/create-slot` - Create a new slot.
+- `/owner/bookings` - Owner booking overview.
+- `/admin` - Admin landing page.
+- `/admin/create-slot` - Admin slot creation.
+- `/admin/bookings` - Admin bookings view.
+- `/admin/slots` - Admin slot list.
+
+## API Routes
+
+### Public APIs
+- `GET /api/slots` - List active slots.
+- `GET /api/slots/[id]` - Read one slot.
+- `POST /api/bookings` - Create a booking.
+- `GET /api/bookings?email=you@example.com` - Look up bookings by email.
+- `PATCH /api/bookings/[id]` - Cancel or reschedule a booking.
+
+### Owner and Admin APIs
+- `POST /api/slots` - Create a slot.
+- `PATCH /api/slots/[id]` - Update a slot.
+- `DELETE /api/slots/[id]` - Archive a slot.
+- `GET /api/owner/bookings` - Fetch owner booking overview.
+- `POST /api/admin/setup-indexes` - Create indexes and apply the collection validator.
+
+## Requirements
+
+- Node.js 18 or newer.
+- npm.
+- MongoDB Atlas or a local MongoDB instance if you want persistence.
+
+## Setup
+
+### 1. Install Dependencies
 
 ```bash
-# Clone repository
-git clone <your-repo-url>
-cd slot-booking-app
-
-# Install dependencies
 npm install
 ```
 
-### 2. Environment Configuration
+This installs the full stack used by the app, including `zustand` and `@tanstack/react-query`.
 
-Create a `.env.local` file in the project root:
+### 2. Create Environment Variables
+
+Create a `.env.local` file in the project root.
 
 ```env
-# MongoDB Atlas Connection
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
+MONGODB_URI=mongodb://localhost:27017/slotbook
 MONGODB_DB=slotbook
-
-# Owner PIN (for demo access)
 OWNER_PIN=1234
 ```
 
-**How to get MongoDB URI:**
-1. Go to [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
-2. Create a free cluster
-3. Get your connection string from "Connect" button
-4. Replace with your credentials
+If you are using MongoDB Atlas, replace `MONGODB_URI` with your Atlas connection string.
 
-### 3. Run Development Server
+### 3. Run the App
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open `http://localhost:3000` in your browser.
 
-## Usage Guide
-
-### For Customers
-
-1. **Homepage** - Browse all available slots
-   - See real-time capacity, timezone, and status
-   - Expired slots and full slots are clearly marked
-   - Click "Book Now" to proceed
-
-2. **Book a Slot** - Enter details and confirm
-   - Name and email are required
-   - Atomic protection ensures no overbooking
-   - Get instant confirmation
-
-3. **My Bookings** - Lookup and manage bookings
-   - Enter your email to retrieve all bookings
-   - Cancel upcoming bookings
-   - View booking status and details
-
-### For Owners
-
-1. **Sign In** - Navigate to `/owner`
-   - Enter your PIN (default: `1234` from `.env.local`)
-   - Access owner dashboard
-
-2. **Create Slots** - Add new availability
-   - Set title, description, time range
-   - Configure capacity (1-100 spots)
-   - Choose timezone for display
-
-3. **View Bookings** - Monitor all reservations
-   - See all customer bookings
-   - Track capacity utilization
-   - Monitor cancellations
-
-## API Endpoints
-
-### Public Endpoints
-
-**GET /api/slots**
-- Fetch all active slots
-- Returns: List of slots with status, capacity, and booking count
-
-**POST /api/bookings**
-- Create a new booking
-- Body: `{ slotId, customerName, customerEmail }`
-- Returns: Booking confirmation
-
-**GET /api/bookings?email={email}**
-- Fetch bookings by customer email
-- Returns: List of bookings with slot details
-
-**PATCH /api/bookings/{id}**
-- Cancel a booking
-- Returns: Confirmation
-
-### Owner-Protected Endpoints (Requires PIN)
-
-**POST /api/slots**
-- Create a new slot
-- Header: `x-owner-pin: {PIN}`
-- Body: `{ title, description, startTime, endTime, timezone, capacity }`
-- Returns: Created slot object
-
-**GET /api/owner/bookings**
-- Fetch all bookings (owner view)
-- Header: `x-owner-pin: {PIN}`
-- Returns: All bookings across all slots
-
-## Business Logic & Edge Cases
-
-### Atomic Transaction Protection
-
-The booking system prevents overbooking through atomic database operations:
-
-```javascript
-// Only succeeds if capacity hasn't been reached
-db.collection('slots').findOneAndUpdate(
-  { _id, bookedCount: { $lt: capacity } },
-  { $inc: { bookedCount: 1 } }
-)
-```
-
-### Duplicate Prevention
-
-Customers cannot book the same slot twice:
-```javascript
-// Check before allowing booking
-db.collection('bookings').findOne({
-  slotId, customerEmail, status: 'confirmed'
-})
-```
-
-### Slot Expiry
-
-- Expired slots show "Expired" badge
-- API rejects bookings for expired slots
-- Customers can't book past-time slots
-
-### Booking Cancellation
-
-When a booking is cancelled:
-1. Booking marked as "cancelled"
-2. Slot `bookedCount` is decremented atomically
-3. Spot becomes available again
-
-## Project Structure
-
-```
-app/
-├── api/
-│   ├── auth/verify-pin/         # PIN verification
-│   ├── bookings/                # Booking CRUD
-│   ├── slots/                   # Slot CRUD
-│   └── owner/bookings/          # Owner bookings view
-├── book/[slotId]/               # Booking form page
-├── my-bookings/                 # Customer bookings lookup
-├── owner/
-│   ├── page.tsx                 # Owner dashboard
-│   ├── create-slot/             # Slot creation form
-│   └── bookings/                # Owner bookings view
-├── layout.tsx                   # Root layout
-├── page.tsx                     # Home page
-└── globals.css
-
-lib/
-├── mongodb.ts                   # MongoDB connection
-├── slots.ts                     # Slot types & validation
-├── bookings.ts                  # Booking types & validation
-└── owner-auth.ts                # PIN verification
-
-components/
-├── ui/                          # UI primitives
-│   ├── button.tsx
-│   ├── input.tsx
-│   └── badge.tsx
-├── book-form.tsx                # Booking form
-├── create-slot-form.tsx         # Slot creation form
-├── my-bookings.tsx              # Bookings list
-└── slot-card.tsx                # Slot card component
-```
-
-## Development Workflow
-
-### Create a Slot
-1. Go to `/owner`
-2. Sign in with PIN (1234)
-3. Click "Create Slot"
-4. Fill in details, submit
-5. Slot appears on homepage immediately
-
-### Book a Slot
-1. Homepage shows all available slots
-2. Click "Book Now" on desired slot
-3. Enter name and email
-4. Confirm booking
-5. Redirected to "My Bookings" view
-
-### Test Booking Atomicity
-1. Create a slot with capacity 1
-2. Try booking simultaneously from multiple tabs
-3. Only one booking succeeds
-4. Other shows "Slot is full" error
-
-## Error Handling
-
-The app handles edge cases gracefully:
-
-| Error | Handled | Response |
-|-------|---------|----------|
-| Slot not found | ✅ | Friendly "not found" page with navigation |
-| Overbooking attempt | ✅ | "Slot is full" error message |
-| Duplicate booking | ✅ | "You already have a booking for this slot" |
-| Expired slot | ✅ | "Slot has already ended" |
-| Invalid PIN | ✅ | Clear authentication error |
-| Network error | ✅ | Retry-friendly messages |
-
-## Testing Checklist
-
-- [ ] Create a slot as owner
-- [ ] View slot on homepage
-- [ ] Book slot as customer
-- [ ] View booking in my-bookings
-- [ ] Cancel booking and verify capacity updates
-- [ ] Try booking with invalid email
-- [ ] Test with expired slot
-- [ ] Test with full capacity slot
-- [ ] Try duplicate booking for same slot
-- [ ] Try double-booking (simultaneous attempts)
-
-## Deployment
-
-### Production Checklist
-
-- [ ] Set strong `OWNER_PIN` in environment
-- [ ] Use secure MongoDB connection (IP whitelist)
-- [ ] Enable HTTPS
-- [ ] Set up monitoring/logging
-- [ ] Test all flows in staging
-- [ ] Create database backups
-
-### Deploy to Vercel
+### 4. Optional Checks
 
 ```bash
-# Push to GitHub
-git push origin main
-
-# Connect to Vercel
-# Add environment variables in Vercel dashboard
-# Automatic deployment on push
+npm run lint
+npm run seed:slots
 ```
 
-## Performance Considerations
+- `npm run lint` checks the codebase for issues.
+- `npm run seed:slots` loads richer sample slots into MongoDB for a better demo.
 
-- **Server-Side Rendering**: Homepage slots fetched server-side for fast initial load
-- **Database Indexing**: Slots indexed on `startTime` for quick sorting
-- **Atomic Operations**: Prevents expensive validation post-booking
-- **Session Storage**: PIN stored client-side to avoid backend auth tokens
+## Seed Sample Data
 
-## Future Enhancements
+The repo includes a seed script that loads richer demo slots into MongoDB.
 
-Potential features for production version:
-- Email notifications via SendGrid/AWS SES
-- Payment processing (Stripe)
-- Google/Outlook calendar integration
-- Advanced analytics dashboard
-- SMS reminders
-- Rate limiting & abuse prevention
-- OAuth authentication
-- Slot templates & recurring slots
-- Customer reviews/ratings
+```bash
+npm run seed:slots
+```
+
+Use this when you want the homepage and booking pages to show more realistic sample data.
+
+## How the App Works
+
+### Booking Flow
+1. A visitor opens the homepage.
+2. The page shows available slots and live availability information.
+3. The visitor opens a slot and fills in name and email.
+4. The booking is submitted through the API.
+5. On success, the user is sent back to the public homepage.
+
+### Owner Flow
+1. An owner opens `/owner` or `/admin`.
+2. The owner enters the PIN.
+3. The owner creates or manages slots.
+4. Booking activity and slot state update through the shared API layer.
+
+### Theme Flow
+1. The app loads in the saved theme if one exists.
+2. The theme toggle updates the page instantly.
+3. The selection is stored locally so it persists across refreshes.
+
+### Data Flow
+1. The public homepage reads the initial slots on the server.
+2. TanStack Query keeps the live slot data fresh in the browser.
+3. Booking availability is rechecked on the booking page before submit.
+4. Zustand stores the current theme mode in the browser.
+
+## Demo and Fallback Behavior
+
+This project is demo-friendly.
+
+- If MongoDB is available, the app uses the database normally.
+- If MongoDB is slow or unavailable, the app falls back to demo data for key read paths so the site can still be shown.
+- The booking and live refresh requests use short timeouts so the UI does not sit on a long network wait during a demo.
+- The fallback mode keeps the homepage, slot page, booking form, and major lookup flows usable during a demo.
+
+That means a new person can still open the app, browse slots, and understand the product even if their local MongoDB service is not ready.
 
 ## Troubleshooting
 
-### MongoDB Connection Error
+### MongoDB does not connect
+- Check `MONGODB_URI` in `.env.local`.
+- Make sure the local MongoDB service is running.
+- If you only need a demo, the app will still show fallback data for many screens.
+
+### Booking is slow
+- The app now uses short connection timeouts and request aborts.
+- If MongoDB is still slow, switch to demo mode or seed a local database.
+
+### Theme toggle does not appear right
+- Make sure the root layout is loading the theme toggle.
+- Clear browser storage and refresh if an old theme setting is stuck.
+
+### Booking form shows a network error
+- Confirm the slot is still available.
+- If MongoDB is unavailable, the app may fall back to demo data instead of persisting the booking.
+
+## Development Notes
+
+- Server components read MongoDB directly instead of fetching their own API routes.
+- Client components use TanStack Query for live refresh and booking actions.
+- Zustand stores theme state instead of a custom external-store implementation.
+- Slot and booking data are validated in shared library code.
+- The live feature showcase on the homepage polls at a slower interval to reduce unnecessary traffic during demos.
+
+## Testing Checklist
+
+- Open the homepage and confirm slots render.
+- Switch theme between dark and light.
+- Open a slot page and confirm the booking panel loads.
+- Submit a booking with valid name and email.
+- View the My Bookings page.
+- Sign in as owner and create a slot.
+- Run the seed script and verify the homepage updates.
+
+## Deployment
+
+Before deploying:
+- Set a strong `OWNER_PIN`.
+- Configure production MongoDB credentials.
+- Verify the app in staging.
+- Make sure indexes are set up with the admin setup route if needed.
+
+A simple production flow is:
+
+```bash
+git push origin main
 ```
-MONGODB_URI is missing in .env.local
-```
-**Solution**: Add MongoDB URI to `.env.local`
 
-### Owner PIN not working
-```
-Owner PIN is missing. Please sign in again.
-```
-**Solution**: Refresh page, ensure PIN is correct in `.env.local`
+Then connect the repo to your hosting platform and add the environment variables there.
 
-### Booking fails with "Slot is full"
-- Slot capacity has been reached
-- Another customer just booked the last spot
-- Create a new slot or wait for cancellation
+## Need a Quick Mental Model?
 
-### Timezone display is wrong
-- Verify timezone is IANA standard (e.g., `America/New_York`)
-- Check browser timezone settings
-- Use owner-specified timezone, not browser timezone
+- `app/` contains the pages and route handlers.
+- `components/` contains the UI building blocks.
+- `lib/` contains the actual booking, slot, auth, and demo logic.
+- MongoDB is the source of truth when available.
+- Demo fallback keeps the app usable when the database is not cooperating.
 
-## Git Commit History
+## Libraries Used
 
-Clean, meaningful commits demonstrate development process:
+- `zustand` - shared client state, currently used for theme mode.
+- `@tanstack/react-query` - client-side data fetching, caching, and background refresh for live slots and booking availability.
 
-```
-feat: initial project setup with MongoDB connection
-feat: implement slot creation API with validation
-feat: add customer booking with atomic protection
-feat: create booking cancellation with cleanup
-feat: add owner dashboard and PIN authentication
-feat: implement my-bookings with email lookup
-feat: improve error handling and edge cases
-fix: prevent duplicate bookings
-refactor: extract validation logic to lib/
-docs: add comprehensive README
-```
+These two libraries replace hand-rolled state and polling code where that made the code simpler and more reliable.
 
-## Code Quality
+## Last Updated
 
-- **TypeScript**: Full type coverage, no `any`
-- **Validation**: Input validation at API layer
-- **Error Handling**: Descriptive error messages
-- **Security**: PIN-based auth, input sanitization
-- **Performance**: Database indexing, atomic operations
-
-## Contact & Support
-
-- **Questions**: Review `PROJECT_PLAN.md` for architecture details
-- **Issues**: Check GitHub issues
-- **Contributions**: Follow git workflow (feature branches)
-
----
-
-**Built for the Intern Skill Assessment**  
-**Status**: Production-ready MVP  
-**Last Updated**: May 24, 2026
+May 27, 2026

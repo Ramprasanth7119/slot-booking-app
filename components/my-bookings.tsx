@@ -17,6 +17,8 @@ type Booking = {
     id: string;
     title: string;
     description?: string;
+    venueName?: string;
+    conductorName?: string;
     startTime: string;
     endTime: string;
     timezone: string;
@@ -290,7 +292,7 @@ export function MyBookingsClient() {
                           <p className="mt-1 text-sm text-zinc-400">{slotStart}</p>
                           {b.slot && (
                             <p className="mt-2 text-xs text-zinc-500">
-                              Timezone: <span className="text-zinc-300">{b.slot.timezone}</span>
+                              Venue: <span className="text-zinc-300">{b.slot.venueName ?? "N/A"}</span> · Conductor: <span className="text-zinc-300">{b.slot.conductorName ?? "N/A"}</span>
                             </p>
                           )}
                         </div>

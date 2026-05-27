@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getMongoDb } from "@/lib/mongodb";
+import { getDemoSlots, shouldUseDemoData } from "@/lib/demo-data";
 import { verifyOwnerRequest } from "@/lib/owner-auth";
 import {
   serializeSlot,
@@ -9,18 +10,43 @@ import {
 } from "@/lib/slots";
 
 const collectionName = "slots";
+const fastApiTimeoutMs = 300;
+
+async function readLiveSlotsFast() {
+  const dbPromise = getMongoDb();
+  const timeoutPromise = new Promise<null>((resolve) => {
+    setTimeout(() => resolve(null), fastApiTimeoutMs);
+  });
+
+  const db = await Promise.race([dbPromise, timeoutPromise]);
+
+  if (!db) {
+    return null;
+  }
+
+  const slots = await db
+    .collection<SlotDocument>(collectionName)
+    .find({ isArchived: false })
+    .sort({ startTime: 1, createdAt: -1 })
+    .toArray();
+
+  return slots.map(serializeSlot);
+}
 
 export async function GET() {
   try {
-    const db = await getMongoDb();
-    const slots = await db
-      .collection<SlotDocument>(collectionName)
-      .find({ isArchived: false })
-      .sort({ startTime: 1, createdAt: -1 })
-      .toArray();
+    const slots = await readLiveSlotsFast();
 
-    return NextResponse.json({ slots: slots.map(serializeSlot) });
+    if (!slots) {
+      return NextResponse.json({ slots: getDemoSlots() });
+    }
+
+    return NextResponse.json({ slots });
   } catch (error) {
+    if (shouldUseDemoData(error)) {
+      return NextResponse.json({ slots: getDemoSlots() });
+    }
+
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Failed to load slots.",
@@ -62,6 +88,10 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
+    if (shouldUseDemoData(error)) {
+      return NextResponse.json({ error: "Failed to create slot." }, { status: 500 });
+    }
+
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Failed to create slot.",

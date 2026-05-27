@@ -1,26 +1,15 @@
 // app/layout.tsx
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
+import { AppProviders } from "@/components/providers";
+import { ThemeToggle } from "@/components/theme-toggle";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-// ⚡️ UPDATED: Added the icons property here
 export const metadata: Metadata = {
   title: "SlotBook",
   description: "A clean UI foundation for a modern slot booking system.",
   icons: {
-    icon: "/booking.png", // Places a favicon in the /public folder
-    // You can also add other formats if needed:
-    // apple: "/apple-touch-icon.png", 
+    icon: "/booking.png",
   },
 };
 
@@ -30,8 +19,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full bg-background text-foreground">{children}</body>
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`(() => { try { const key = 'slotbook-theme'; const saved = localStorage.getItem(key); const preferred = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; const theme = saved === 'light' || saved === 'dark' ? saved : preferred; document.documentElement.dataset.theme = theme; document.documentElement.style.colorScheme = theme; } catch (e) { document.documentElement.dataset.theme = 'dark'; document.documentElement.style.colorScheme = 'dark'; } })();`}
+        </Script>
+      </head>
+      <body className="min-h-full bg-background text-foreground">
+        <AppProviders>
+          <div className="fixed right-4 top-4 z-50">
+            <ThemeToggle />
+          </div>
+          {children}
+        </AppProviders>
+      </body>
     </html>
   );
 }

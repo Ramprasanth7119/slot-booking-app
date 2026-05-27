@@ -1,48 +1,50 @@
-import { headers } from "next/headers";
-import Link from "next/link";
-
+import { getMongoDb } from "@/lib/mongodb";
+import { getDemoSlots, shouldUseDemoData } from "@/lib/demo-data";
+import { HomeFeatureShowcase } from "@/components/home-feature-showcase";
 import { SlotCard } from "@/components/slot-card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { serializeSlot, type SlotDocument, type SerializedSlot } from "@/lib/slots";
 
-type SlotResponse = {
-  id: string;
-  title: string;
-  description: string;
-  timeRange: string;
-  timezone: string;
-  bookedCount: number;
-  capacity: number;
-  status: "Available" | "Full" | "Expired" | "Archived";
-};
+const fastHomeTimeoutMs = 300;
 
-async function getSlots(): Promise<SlotResponse[]> {
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("host");
-  const protocol = host?.includes("localhost") ? "http" : "https";
-  const baseUrl = host ? `${protocol}://${host}` : "http://localhost:3000";
-
+async function getSlots(): Promise<SerializedSlot[]> {
   try {
-    const response = await fetch(`${baseUrl}/api/slots`, { cache: "no-store" });
+    const dbPromise = getMongoDb();
+    const timeoutPromise = new Promise<null>((resolve) => {
+      setTimeout(() => resolve(null), fastHomeTimeoutMs);
+    });
 
-    if (!response.ok) {
-      return [];
+    const db = await Promise.race([dbPromise, timeoutPromise]);
+
+    if (!db) {
+      return getDemoSlots();
     }
 
-    const data = (await response.json()) as { slots?: SlotResponse[] };
-    return data.slots ?? [];
-  } catch {
+    const slots = await db
+      .collection<SlotDocument>("slots")
+      .find({ isArchived: false })
+      .sort({ startTime: 1, createdAt: -1 })
+      .toArray();
+
+    return slots.map(serializeSlot);
+  } catch (error) {
+    if (shouldUseDemoData(error)) {
+      return getDemoSlots();
+    }
+
     return [];
   }
 }
 
 export default async function Home() {
   const slots = await getSlots();
+  const availableSlots = slots.filter((slot) => slot.status === "Available");
+  const fullSlots = slots.filter((slot) => slot.status === "Full");
+  const totalRemainingSeats = slots.reduce((total, slot) => total + slot.remainingSeats, 0);
 
   return (
-    <section className="space-y-16 py-10 sm:py-14 lg:py-20">
-      <div className="grid items-center gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(460px,0.95fr)] xl:gap-10">
-        <div className="space-y-6">
+    <section className="py-8 sm:py-12 lg:py-16">
+      <div className="mx-auto w-full max-w-7xl space-y-14 px-4 sm:px-6 lg:px-8">
+        <div className="space-y-7">
           <p className="text-xs font-semibold uppercase tracking-[0.34em] text-violet-300/80">
             Slot booking platform
           </p>
@@ -54,65 +56,59 @@ export default async function Home() {
               Browse available slots, reserve your preferred time, and manage your bookings in one place. Secure, reliable, and easy to use.
             </p>
           </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.03] p-4 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
+              <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Available</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{availableSlots.length}</p>
+            </div>
+            <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.03] p-4 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
+              <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Full</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{fullSlots.length}</p>
+            </div>
+            <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.03] p-4 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
+              <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Remaining Seats</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{totalRemainingSeats}</p>
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.24)] backdrop-blur-xl">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <Input placeholder="Search by service, host, or date" aria-label="Search slots" />
-            <Button className="px-6">
-              Search
-            </Button>
+        <HomeFeatureShowcase initialSlots={slots} />
+
+        <section className="space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-[1.65rem]">Available Slots</h2>
+              <p className="mt-2 text-sm leading-7 text-zinc-400">Browse all available time slots and book what works for you.</p>
+            </div>
+            <p className="text-sm text-zinc-500">{slots.length} slot{slots.length !== 1 ? "s" : ""} available</p>
           </div>
-          <p className="mt-3 text-xs leading-6 text-zinc-500">Advanced search features available. Browse all slots below or create a new one.</p>
-        </div>
+
+          {slots.length ? (
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {slots.map((slot) => (
+                <SlotCard
+                  key={slot.id}
+                  id={slot.id}
+                  title={slot.title}
+                  description={slot.description}
+                  venueName={slot.venueName}
+                  conductorName={slot.conductorName}
+                  timeRange={slot.timeRange}
+                  timezone={slot.timezone}
+                  bookedCount={slot.bookedCount}
+                  capacity={slot.capacity}
+                  status={slot.status}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-[1.5rem] border border-dashed border-white/10 bg-white/[0.03] p-8 text-sm text-zinc-400">
+              No live slots yet. Use the owner create form to add the first slot.
+            </div>
+          )}
+        </section>
       </div>
-
-      <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-400">
-        <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-zinc-200 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
-          Real-time updates
-        </span>
-        <span className="rounded-full border border-white/10 bg-white/[0.02] px-4 py-2 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
-          Live availability preview
-        </span>
-        <Link
-            href="/admin"
-          className="rounded-full border border-white/10 bg-white/[0.02] px-4 py-2 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/5 hover:text-white"
-        >
-            Admin tools
-        </Link>
-      </div>
-
-      <section className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-[1.65rem]">Available Slots</h2>
-            <p className="mt-2 text-sm leading-7 text-zinc-400">Browse all available time slots and book what works for you.</p>
-          </div>
-          <p className="text-sm text-zinc-500">{slots.length} slot{slots.length !== 1 ? 's' : ''} available</p>
-        </div>
-
-        {slots.length ? (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {slots.map((slot) => (
-              <SlotCard
-                key={slot.id}
-                id={slot.id}
-                title={slot.title}
-                description={slot.description}
-                timeRange={slot.timeRange}
-                timezone={slot.timezone}
-                bookedCount={slot.bookedCount}
-                capacity={slot.capacity}
-                status={slot.status}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-[1.5rem] border border-dashed border-white/10 bg-white/[0.03] p-8 text-sm text-zinc-400">
-            No live slots yet. Use the owner create form to add the first slot.
-          </div>
-        )}
-      </section>
     </section>
   );
 }

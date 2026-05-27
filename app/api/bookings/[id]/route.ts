@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 
+import {
+  cancelDemoBooking,
+  rescheduleDemoBooking,
+  shouldUseDemoData,
+} from "@/lib/demo-data";
 import { getMongoClient, getMongoDb } from "@/lib/mongodb";
 import { type BookingDocument } from "@/lib/bookings";
 import { getSlotStatus, type SlotDocument } from "@/lib/slots";
@@ -172,6 +177,28 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+
+    if (shouldUseDemoData(error)) {
+      const targetSlotId = typeof body.targetSlotId === "string" ? body.targetSlotId.trim() : "";
+
+      if (!targetSlotId) {
+        const result = cancelDemoBooking(id);
+
+        if (!result.success) {
+          return NextResponse.json({ error: result.error }, { status: result.status });
+        }
+
+        return NextResponse.json({ success: true });
+      }
+
+      const result = rescheduleDemoBooking(id, targetSlotId);
+
+      if (!result.success) {
+        return NextResponse.json({ error: result.error }, { status: result.status });
+      }
+
+      return NextResponse.json({ booking: result.booking }, { status: 200 });
+    }
 
     if (message === "BOOKING_NOT_FOUND") return NextResponse.json({ error: "Booking not found." }, { status: 404 });
     if (message === "BOOKING_ALREADY_CANCELLED") return NextResponse.json({ error: "Booking is already cancelled." }, { status: 409 });

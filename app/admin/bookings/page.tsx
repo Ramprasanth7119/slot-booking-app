@@ -9,6 +9,8 @@ import { buttonClassName } from "@/components/ui/button";
 type AdminBooking = {
   slotId: string;
   slotTitle: string;
+  slotVenueName: string;
+  slotConductorName: string;
   slotStartTime: string;
   slotEndTime: string;
   slotTimezone: string;
@@ -131,6 +133,9 @@ export default function AdminBookingsPage() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
                       <h3 className="font-semibold text-white">{booking.slotTitle}</h3>
+                      <p className="mt-1 text-xs uppercase tracking-[0.24em] text-zinc-500">
+                        {booking.slotVenueName || "Venue unavailable"} · {booking.slotConductorName || "Conductor unavailable"}
+                      </p>
                       <p className="mt-1 text-sm text-zinc-400">{slotStart}</p>
                       <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500">
                         <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">{booking.slotBookedCount}/{booking.slotCapacity} booked</span>

@@ -77,6 +77,8 @@ export default async function EditSlotPage({ params }: Params) {
             initialValues={{
               title: serialized.title,
               description: serialized.description,
+              venueName: serialized.venueName,
+              conductorName: serialized.conductorName,
               startTime: serialized.startTime,
               endTime: serialized.endTime,
               timezone: serialized.timezone,
@@ -101,6 +103,14 @@ export default async function EditSlotPage({ params }: Params) {
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Booked</dt>
               <dd className="mt-1 text-zinc-300">{serialized.bookedCount} / {serialized.capacity}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Venue</dt>
+              <dd className="mt-1 text-zinc-300">{serialized.venueName}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Conductor</dt>
+              <dd className="mt-1 text-zinc-300">{serialized.conductorName}</dd>
             </div>
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Remaining</dt>

@@ -1,6 +1,13 @@
 import { ObjectId } from "mongodb";
 import { NextResponse } from "next/server";
 
+import {
+  archiveDemoSlot,
+  getDemoSlotById,
+  getDemoSlotRecordById,
+  shouldUseDemoData,
+  updateDemoSlot,
+} from "@/lib/demo-data";
 import { getMongoDb } from "@/lib/mongodb";
 import { verifyOwnerRequest } from "@/lib/owner-auth";
 import { serializeSlot, type SlotDocument, validateSlotInput } from "@/lib/slots";
@@ -41,6 +48,15 @@ export async function GET(_request: Request, context: RouteContext) {
 
     return NextResponse.json({ slot: serializeSlot(slot) });
   } catch (error) {
+    if (shouldUseDemoData(error)) {
+      const { id } = await context.params;
+      const demoSlot = getDemoSlotById(id);
+
+      if (demoSlot) {
+        return NextResponse.json({ slot: demoSlot });
+      }
+    }
+
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to load slot." }, { status: 500 });
   }
 }
@@ -91,7 +107,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ slot: serializeSlot(updatedSlot) });
     }
 
-    const validation = validateSlotInput(body);
+    const validation = validateSlotInput(body, currentSlot);
 
     if (!validation.success) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
@@ -114,6 +130,15 @@ export async function PATCH(request: Request, context: RouteContext) {
         $set: {
           title: validation.data.title,
           description: validation.data.description,
+          venueName: validation.data.venueName,
+          conductorName: validation.data.conductorName,
+          category: validation.data.category,
+          format: validation.data.format,
+          audience: validation.data.audience,
+          highlights: validation.data.highlights,
+          featured: validation.data.featured,
+          roomLabel: validation.data.roomLabel,
+          meetingUrl: validation.data.meetingUrl,
           timezone: validation.data.timezone,
           capacity: validation.data.capacity,
           startTime,
@@ -129,6 +154,40 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     return NextResponse.json({ slot: serializeSlot(result as SlotDocument) });
   } catch (error) {
+    if (shouldUseDemoData(error)) {
+      const demoCurrentSlot = getDemoSlotRecordById(id);
+
+      if (!demoCurrentSlot) {
+        return NextResponse.json({ error: "Slot not found." }, { status: 404 });
+      }
+
+      const body = await request.json().catch(() => null);
+
+      if (isPlainObject(body) && Object.keys(body).length === 1 && typeof body.isArchived === "boolean") {
+        const archived = archiveDemoSlot(id, body.isArchived);
+
+        if (!archived) {
+          return NextResponse.json({ error: "Slot not found." }, { status: 404 });
+        }
+
+        return NextResponse.json({ slot: archived });
+      }
+
+      const validation = validateSlotInput(body, demoCurrentSlot);
+
+      if (!validation.success) {
+        return NextResponse.json({ error: validation.error }, { status: 400 });
+      }
+
+      const updated = updateDemoSlot(id, validation.data);
+
+      if (!updated) {
+        return NextResponse.json({ error: "Slot not found after update." }, { status: 404 });
+      }
+
+      return NextResponse.json({ slot: updated });
+    }
+
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to update slot." }, { status: 500 });
   }
 }
@@ -165,6 +224,16 @@ export async function DELETE(request: Request, context: RouteContext) {
 
     return NextResponse.json({ slot: updatedSlot ? serializeSlot(updatedSlot) : null });
   } catch (error) {
+    if (shouldUseDemoData(error)) {
+      const archived = archiveDemoSlot(id, true);
+
+      if (!archived) {
+        return NextResponse.json({ error: "Slot not found." }, { status: 404 });
+      }
+
+      return NextResponse.json({ slot: archived });
+    }
+
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to delete slot." }, { status: 500 });
   }
 }

@@ -187,6 +187,7 @@ export function AdminSlotManager({ initialSlots }: AdminSlotManagerProps) {
                     <Badge tone={tone}>{slot.status}</Badge>
                   </div>
                   <p className="max-w-3xl text-sm leading-7 text-zinc-400">{slot.description}</p>
+                  <p className="text-sm text-zinc-300">{slot.venueName} · {slot.conductorName}</p>
                   <p className="text-sm text-zinc-300">{slot.timeRange} · {slot.timezone}</p>
                   <div className="flex flex-wrap gap-2 text-xs text-zinc-500">
                     <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Booked {slot.bookedCount}/{slot.capacity}</span>

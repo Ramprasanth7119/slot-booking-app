@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 export type SlotFormValues = {
   title: string;
   description: string;
+  venueName: string;
+  conductorName: string;
   startTime: string;
   endTime: string;
   timezone: string;
@@ -19,6 +21,8 @@ export type SlotFormValues = {
 const initialForm: SlotFormValues = {
   title: "",
   description: "",
+  venueName: "",
+  conductorName: "",
   startTime: "",
   endTime: "",
   timezone: "UTC",
@@ -73,6 +77,8 @@ function buildInitialForm(values?: Partial<SlotFormValues>) {
   return {
     title: values?.title ?? initialForm.title,
     description: values?.description ?? initialForm.description,
+    venueName: values?.venueName ?? initialForm.venueName,
+    conductorName: values?.conductorName ?? initialForm.conductorName,
     startTime: toDatetimeInputValue(values?.startTime ?? initialForm.startTime),
     endTime: toDatetimeInputValue(values?.endTime ?? initialForm.endTime),
     timezone: values?.timezone ?? initialForm.timezone,
@@ -114,6 +120,20 @@ export function CreateSlotForm({
     if (!form.description.trim()) {
       setIsError(true);
       setMessage("Please enter a slot description.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!form.venueName.trim()) {
+      setIsError(true);
+      setMessage("Please enter a venue name.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!form.conductorName.trim()) {
+      setIsError(true);
+      setMessage("Please enter the conductor name.");
       setIsSubmitting(false);
       return;
     }
@@ -160,6 +180,8 @@ export function CreateSlotForm({
     const payload = {
       title: form.title.trim(),
       description: form.description.trim(),
+      venueName: form.venueName.trim(),
+      conductorName: form.conductorName.trim(),
       startTime: startDate.toISOString(),
       endTime: endDate.toISOString(),
       timezone: form.timezone,
@@ -244,6 +266,28 @@ export function CreateSlotForm({
             placeholder="Describe what this slot is for..."
             rows={4}
             className="min-h-28 w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm text-white outline-none shadow-[0_1px_0_rgba(255,255,255,0.03)_inset] transition duration-200 ease-out placeholder:text-zinc-500 focus:border-violet-400/35 focus:ring-2 focus:ring-violet-400/15 disabled:opacity-50 disabled:cursor-not-allowed"
+            required
+            disabled={isSubmitting}
+          />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-zinc-200">Venue name</span>
+          <Input
+            value={form.venueName}
+            onChange={(event) => updateField("venueName", event.target.value)}
+            placeholder="Main Conference Room"
+            required
+            disabled={isSubmitting}
+          />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-zinc-200">Conductor name</span>
+          <Input
+            value={form.conductorName}
+            onChange={(event) => updateField("conductorName", event.target.value)}
+            placeholder="Alex Johnson"
             required
             disabled={isSubmitting}
           />

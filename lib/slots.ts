@@ -1,10 +1,25 @@
 import { ObjectId } from "mongodb";
 
 export type SlotStatus = "Available" | "Full" | "Expired" | "Archived";
+export type SlotCategory = "Consultation" | "Workshop" | "Performance" | "Meeting" | "Training";
+export type SlotFormat = "In-person" | "Virtual" | "Hybrid";
+
+export type SlotCollectionValidator = {
+  $jsonSchema: Record<string, unknown>;
+};
 
 export type SlotInput = {
   title: string;
   description: string;
+  venueName: string;
+  conductorName: string;
+  category: SlotCategory;
+  format: SlotFormat;
+  audience: string;
+  highlights: string[];
+  featured: boolean;
+  roomLabel?: string;
+  meetingUrl?: string | null;
   startTime: string;
   endTime: string;
   timezone: string;
@@ -28,6 +43,15 @@ export type SerializedSlot = {
   id: string;
   title: string;
   description: string;
+  venueName: string;
+  conductorName: string;
+  category: SlotCategory;
+  format: SlotFormat;
+  audience: string;
+  highlights: string[];
+  featured: boolean;
+  roomLabel?: string;
+  meetingUrl?: string | null;
   startTime: string;
   endTime: string;
   timeRange: string;
@@ -61,17 +85,87 @@ function toDate(value: unknown) {
   return parsed;
 }
 
-export function validateSlotInput(body: unknown): SlotValidationResult {
+function toBoolean(value: unknown, fallback = false) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  return fallback;
+}
+
+function toStringArray(value: unknown, fallback: string[]) {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  const items = value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return items.length ? items.slice(0, 5) : fallback;
+}
+
+function normalizeCategory(value: unknown, fallback: SlotCategory): SlotCategory {
+  const categories: SlotCategory[] = ["Consultation", "Workshop", "Performance", "Meeting", "Training"];
+  return typeof value === "string" && categories.includes(value as SlotCategory) ? (value as SlotCategory) : fallback;
+}
+
+function normalizeFormat(value: unknown, fallback: SlotFormat): SlotFormat {
+  const formats: SlotFormat[] = ["In-person", "Virtual", "Hybrid"];
+  return typeof value === "string" && formats.includes(value as SlotFormat) ? (value as SlotFormat) : fallback;
+}
+
+function toOptionalString(value: unknown, fallback = "") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || fallback;
+}
+
+function buildHighlights(description: string, venueName: string, conductorName: string) {
+  return [
+    description.slice(0, 88),
+    `Venue: ${venueName}`,
+    `Conductor: ${conductorName}`,
+  ].filter(Boolean).slice(0, 3);
+}
+
+function buildDefaults(overrides?: Partial<SlotInput>) {
+  return {
+    category: overrides?.category ?? "Consultation",
+    format: overrides?.format ?? "In-person",
+    audience: overrides?.audience ?? "General attendees",
+    highlights: overrides?.highlights ?? [],
+    featured: overrides?.featured ?? false,
+    roomLabel: overrides?.roomLabel,
+    meetingUrl: overrides?.meetingUrl ?? null,
+  } satisfies Pick<SlotInput, "category" | "format" | "audience" | "highlights" | "featured" | "roomLabel" | "meetingUrl">;
+}
+
+export function validateSlotInput(body: unknown, defaults?: Partial<SlotInput>): SlotValidationResult {
   if (!isPlainObject(body)) {
     return { success: false, error: "Invalid request body." };
   }
 
+  const normalizedDefaults = buildDefaults(defaults);
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() : "";
+  const venueName = typeof body.venueName === "string" ? body.venueName.trim() : "";
+  const conductorName = typeof body.conductorName === "string" ? body.conductorName.trim() : "";
   const timezone = typeof body.timezone === "string" ? body.timezone.trim() : "";
   const capacityValue = typeof body.capacity === "number" ? body.capacity : Number(body.capacity);
   const startTime = toDate(body.startTime);
   const endTime = toDate(body.endTime);
+  const category = normalizeCategory(body.category, normalizedDefaults.category);
+  const format = normalizeFormat(body.format, normalizedDefaults.format);
+  const audience = toOptionalString(body.audience, normalizedDefaults.audience);
+  const roomLabel = toOptionalString(body.roomLabel, normalizedDefaults.roomLabel ?? venueName);
+  const meetingUrl = typeof body.meetingUrl === "string" && body.meetingUrl.trim() ? body.meetingUrl.trim() : normalizedDefaults.meetingUrl;
+  const featured = toBoolean(body.featured, normalizedDefaults.featured);
+  const highlights = toStringArray(body.highlights, buildHighlights(description, venueName, conductorName));
 
   if (!title) {
     return { success: false, error: "Title is required." };
@@ -83,6 +177,14 @@ export function validateSlotInput(body: unknown): SlotValidationResult {
 
   if (!description) {
     return { success: false, error: "Description is required." };
+  }
+
+  if (!venueName) {
+    return { success: false, error: "Venue name is required." };
+  }
+
+  if (!conductorName) {
+    return { success: false, error: "Conductor name is required." };
   }
 
   if (!timezone) {
@@ -106,6 +208,15 @@ export function validateSlotInput(body: unknown): SlotValidationResult {
     data: {
       title,
       description,
+      venueName,
+      conductorName,
+      category,
+      format,
+      audience,
+      highlights,
+      featured,
+      roomLabel,
+      meetingUrl,
       timezone,
       capacity: capacityValue,
       startTime: startTime.toISOString(),
@@ -165,6 +276,15 @@ export function serializeSlot(slot: SlotDocument) {
     id: slot._id?.toString() ?? "",
     title: slot.title,
     description: slot.description,
+    venueName: slot.venueName,
+    conductorName: slot.conductorName,
+    category: slot.category,
+    format: slot.format,
+    audience: slot.audience,
+    highlights: slot.highlights,
+    featured: slot.featured,
+    roomLabel: slot.roomLabel,
+    meetingUrl: slot.meetingUrl,
     startTime: slot.startTime.toISOString(),
     endTime: slot.endTime.toISOString(),
     timeRange: formatSlotTimeRange(slot.startTime, slot.endTime, slot.timezone),
@@ -176,4 +296,62 @@ export function serializeSlot(slot: SlotDocument) {
     createdAt: slot.createdAt.toISOString(),
     status,
   } satisfies SerializedSlot;
+}
+
+export function getSlotCollectionValidator(): SlotCollectionValidator {
+  return {
+    $jsonSchema: {
+      bsonType: "object",
+      required: [
+        "title",
+        "description",
+        "venueName",
+        "conductorName",
+        "category",
+        "format",
+        "audience",
+        "highlights",
+        "featured",
+        "startTime",
+        "endTime",
+        "timezone",
+        "capacity",
+        "bookedCount",
+        "isArchived",
+        "createdAt",
+      ],
+      properties: {
+        title: { bsonType: "string", minLength: 1, maxLength: 120 },
+        description: { bsonType: "string", minLength: 1, maxLength: 2000 },
+        venueName: { bsonType: "string", minLength: 1, maxLength: 120 },
+        conductorName: { bsonType: "string", minLength: 1, maxLength: 120 },
+        category: {
+          bsonType: "string",
+          enum: ["Consultation", "Workshop", "Performance", "Meeting", "Training"],
+        },
+        format: {
+          bsonType: "string",
+          enum: ["In-person", "Virtual", "Hybrid"],
+        },
+        audience: { bsonType: "string", minLength: 1, maxLength: 120 },
+        highlights: {
+          bsonType: "array",
+          minItems: 1,
+          maxItems: 5,
+          items: { bsonType: "string", minLength: 1, maxLength: 140 },
+        },
+        featured: { bsonType: "bool" },
+        roomLabel: { bsonType: ["string", "null"] },
+        meetingUrl: { bsonType: ["string", "null"] },
+        startTime: { bsonType: "date" },
+        endTime: { bsonType: "date" },
+        timezone: { bsonType: "string", minLength: 1, maxLength: 64 },
+        capacity: { bsonType: "int", minimum: 1, maximum: 100 },
+        bookedCount: { bsonType: "int", minimum: 0 },
+        isArchived: { bsonType: "bool" },
+        deletedAt: { bsonType: ["date", "null"] },
+        createdAt: { bsonType: "date" },
+      },
+    },
+  };
 }
