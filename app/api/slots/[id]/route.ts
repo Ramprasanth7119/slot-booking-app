@@ -40,7 +40,45 @@ export async function GET(_request: Request, context: RouteContext) {
     }
 
     const db = await getMongoDb();
-    const slot = await db.collection<SlotDocument>(SLOTS).findOne({ _id: objectId });
+    
+    // Use aggregation to get actual booking count for this slot
+    const results = await db.collection<SlotDocument>(SLOTS).aggregate([
+      { $match: { _id: objectId } },
+      {
+        $lookup: {
+          from: "bookings",
+          let: { slotId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$status", "confirmed"] },
+                    {
+                      $or: [
+                        { $eq: ["$slotId", "$$slotId"] },
+                        { $eq: ["$slotId", { $toString: "$$slotId" }] },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            { $count: "count" },
+          ],
+          as: "bookingCountResult",
+        },
+      },
+      {
+        $addFields: {
+          bookedCount: {
+            $ifNull: [{ $arrayElemAt: ["$bookingCountResult.count", 0] }, 0],
+          },
+        },
+      },
+    ]).toArray();
+
+    const slot = results[0] as SlotDocument | undefined;
 
     if (!slot) {
       return NextResponse.json({ error: "Slot not found." }, { status: 404 });

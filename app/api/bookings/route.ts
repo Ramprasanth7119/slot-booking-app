@@ -57,6 +57,7 @@ export async function GET(request: Request) {
     const db = await getMongoDb();
 
     // Join bookings with slot details
+    // We use a more complex lookup to handle potential manual string IDs in the database
     const results = await db
       .collection(BOOKINGS)
       .aggregate([
@@ -64,8 +65,25 @@ export async function GET(request: Request) {
         {
           $lookup: {
             from: SLOTS,
-            localField: "slotId",
-            foreignField: "_id",
+            let: { sid: "$slotId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $or: [
+                      { $eq: ["$_id", "$$sid"] },
+                      { $eq: [{ $toString: "$_id" }, "$$sid"] },
+                      {
+                        $and: [
+                          { $eq: [{ $type: "$$sid" }, "string"] },
+                          { $eq: ["$_id", { $toObjectId: "$$sid" }] },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
             as: "slot",
           },
         },
@@ -149,7 +167,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Slot not found." }, { status: 404 });
     }
 
-    const slotStatus = getSlotStatus(slot, now);
+    // Get actual booking count to ensure we don't overbook due to manual DB edits
+    const actualBookedCount = await db.collection(BOOKINGS).countDocuments({
+      status: "confirmed",
+      $or: [{ slotId: slot._id }, { slotId: slot._id.toString() }],
+    });
+
+    // Update slot object with actual count for status check
+    const slotWithActualCount = { ...slot, bookedCount: actualBookedCount };
+    const slotStatus = getSlotStatus(slotWithActualCount, now);
 
     if (slotStatus === "Archived") {
       return NextResponse.json({ error: "Slot is archived." }, { status: 400 });
@@ -163,7 +189,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Slot is full or no longer available." }, { status: 409 });
     }
 
-    const existing = await db.collection(BOOKINGS).findOne({ slotId: slot._id, customerEmail, status: "confirmed" });
+    const existing = await db.collection(BOOKINGS).findOne({
+      customerEmail,
+      status: "confirmed",
+      $or: [{ slotId: slot._id }, { slotId: slot._id.toString() }],
+    });
+
     if (existing) {
       return NextResponse.json({ error: "You already have a booking for this slot." }, { status: 409 });
     }

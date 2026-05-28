@@ -95,7 +95,17 @@ export async function PATCH(request: Request, context: RouteContext) {
           throw new Error("TARGET_SLOT_NOT_FOUND");
         }
 
-        const targetStatus = getSlotStatus(targetSlot, now);
+        // Get actual booking count for target slot to ensure capacity
+        const targetActualBookedCount = await db.collection(BOOKINGS).countDocuments(
+          { 
+            status: "confirmed", 
+            $or: [{ slotId: targetSlot._id }, { slotId: targetSlot._id.toString() }] 
+          },
+          { session }
+        );
+
+        const targetSlotWithActualCount = { ...targetSlot, bookedCount: targetActualBookedCount };
+        const targetStatus = getSlotStatus(targetSlotWithActualCount, now);
 
         if (targetStatus === "Archived") {
           throw new Error("TARGET_SLOT_ARCHIVED");
@@ -110,7 +120,11 @@ export async function PATCH(request: Request, context: RouteContext) {
         }
 
         const duplicate = await db.collection(BOOKINGS).findOne(
-          { slotId: targetSlot._id, customerEmail: booking.customerEmail, status: "confirmed" },
+          { 
+            customerEmail: booking.customerEmail, 
+            status: "confirmed",
+            $or: [{ slotId: targetSlot._id }, { slotId: targetSlot._id.toString() }]
+          },
           { session }
         );
 

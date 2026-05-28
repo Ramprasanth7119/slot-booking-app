@@ -13,24 +13,52 @@ const collectionName = "slots";
 const fastApiTimeoutMs = 300;
 
 async function readLiveSlotsFast() {
-  const dbPromise = getMongoDb();
-  const timeoutPromise = new Promise<null>((resolve) => {
-    setTimeout(() => resolve(null), fastApiTimeoutMs);
-  });
+  const db = await getMongoDb();
+  if (!db) return null;
 
-  const db = await Promise.race([dbPromise, timeoutPromise]);
-
-  if (!db) {
-    return null;
-  }
-
+  // Use aggregation to get actual booking counts from the bookings collection
+  // This ensures that manual additions to bookings are reflected in the UI
   const slots = await db
     .collection<SlotDocument>(collectionName)
-    .find({ isArchived: false })
-    .sort({ startTime: 1, createdAt: -1 })
+    .aggregate([
+      { $match: { isArchived: false } },
+      {
+        $lookup: {
+          from: "bookings",
+          let: { slotId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$status", "confirmed"] },
+                    {
+                      $or: [
+                        { $eq: ["$slotId", "$$slotId"] },
+                        { $eq: ["$slotId", { $toString: "$$slotId" }] },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            { $count: "count" },
+          ],
+          as: "bookingCountResult",
+        },
+      },
+      {
+        $addFields: {
+          bookedCount: {
+            $ifNull: [{ $arrayElemAt: ["$bookingCountResult.count", 0] }, 0],
+          },
+        },
+      },
+      { $sort: { startTime: 1, createdAt: -1 } },
+    ])
     .toArray();
 
-  return slots.map(serializeSlot);
+  return (slots as SlotDocument[]).map(serializeSlot);
 }
 
 export async function GET() {

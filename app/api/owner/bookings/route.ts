@@ -31,14 +31,32 @@ export async function GET(request: Request) {
     const db = await getMongoDb();
 
     // Fetch all bookings with their slot details
+    // We use a more complex lookup to handle potential manual string IDs in the database
     const results = await db
       .collection(BOOKINGS)
       .aggregate([
         {
           $lookup: {
             from: SLOTS,
-            localField: "slotId",
-            foreignField: "_id",
+            let: { sid: "$slotId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $or: [
+                      { $eq: ["$_id", "$$sid"] },
+                      { $eq: [{ $toString: "$_id" }, "$$sid"] },
+                      {
+                        $and: [
+                          { $eq: [{ $type: "$$sid" }, "string"] },
+                          { $eq: ["$_id", { $toObjectId: "$$sid" }] },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
             as: "slot",
           },
         },
