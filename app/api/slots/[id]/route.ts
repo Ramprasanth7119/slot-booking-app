@@ -10,7 +10,7 @@ import {
 } from "@/lib/demo-data";
 import { getMongoDb } from "@/lib/mongodb";
 import { verifyOwnerRequest } from "@/lib/owner-auth";
-import { serializeSlot, type SlotDocument, validateSlotInput } from "@/lib/slots";
+import { serializeSlot, type SlotDocument, type SlotInput, validateSlotInput } from "@/lib/slots";
 
 const SLOTS = "slots";
 
@@ -107,7 +107,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       return NextResponse.json({ slot: serializeSlot(updatedSlot) });
     }
 
-    const validation = validateSlotInput(body, currentSlot);
+    const validation = validateSlotInput(body, currentSlot as unknown as Partial<SlotInput>);
 
     if (!validation.success) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
@@ -155,6 +155,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ slot: serializeSlot(result as SlotDocument) });
   } catch (error) {
     if (shouldUseDemoData(error)) {
+      const { id } = await context.params;
       const demoCurrentSlot = getDemoSlotRecordById(id);
 
       if (!demoCurrentSlot) {
@@ -173,7 +174,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         return NextResponse.json({ slot: archived });
       }
 
-      const validation = validateSlotInput(body, demoCurrentSlot);
+      const validation = validateSlotInput(body, demoCurrentSlot as unknown as Partial<SlotInput>);
 
       if (!validation.success) {
         return NextResponse.json({ error: validation.error }, { status: 400 });
@@ -225,6 +226,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     return NextResponse.json({ slot: updatedSlot ? serializeSlot(updatedSlot) : null });
   } catch (error) {
     if (shouldUseDemoData(error)) {
+      const { id } = await context.params;
       const archived = archiveDemoSlot(id, true);
 
       if (!archived) {
