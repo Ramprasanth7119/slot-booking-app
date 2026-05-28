@@ -6,7 +6,6 @@ const mongoClientOptions = {
   connectTimeoutMS: 5000,
   socketTimeoutMS: 10000,
   waitQueueTimeoutMS: 5000,
-  directConnection: true,
 };
 
 type MongoClientCache = {
