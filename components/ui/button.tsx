@@ -8,15 +8,15 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const buttonStyles: Record<ButtonVariant, string> = {
   primary:
-    "border border-white/10 bg-[linear-gradient(135deg,rgba(99,102,241,0.96),rgba(168,85,247,0.9))] text-white shadow-[0_12px_30px_rgba(99,102,241,0.2)] hover:brightness-110 hover:shadow-[0_16px_36px_rgba(99,102,241,0.26)]",
+    "bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] border border-[var(--btn-primary-border)] shadow-[0_8px_24px_var(--btn-primary-shadow)] hover:bg-[var(--btn-primary-hover)] hover:shadow-[0_12px_32px_rgba(30,122,136,0.25)] active:bg-[var(--btn-primary-active)] active:shadow-[0_4px_12px_rgba(30,122,136,0.15)]",
   secondary:
-    "border border-white/10 bg-white/[0.04] text-white hover:border-white/15 hover:bg-white/[0.075] hover:text-white",
-  ghost: "border border-transparent bg-transparent text-zinc-200 hover:bg-white/[0.05] hover:text-white",
+    "bg-[var(--btn-secondary-bg)] text-[var(--foreground)] border border-[var(--btn-secondary-border)] hover:bg-[var(--btn-secondary-hover)] active:bg-[var(--btn-secondary-active)] hover:border-[var(--btn-secondary-border)]",
+  ghost: "border border-transparent bg-transparent text-[var(--foreground)] hover:bg-white/[0.05] hover:text-[var(--foreground)] active:bg-white/[0.03]",
 };
 
 export function buttonClassName(variant: ButtonVariant = "primary") {
   return [
-    "inline-flex h-11 items-center justify-center rounded-2xl px-5 text-sm font-medium tracking-tight transition-all duration-200 ease-out hover:-translate-y-0.5 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/40 focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50",
+    "inline-flex h-11 items-center justify-center rounded-xl px-5 text-sm font-medium tracking-tight transition-all duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-0 focus-visible:ring-[rgba(71,141,150,0.4)] disabled:pointer-events-none disabled:opacity-50 disabled:hover:translate-y-0 disabled:active:scale-100",
     buttonStyles[variant],
   ].join(" ");
 }

@@ -18,13 +18,12 @@ type RouteContext = {
 };
 
 export async function PATCH(request: Request, context: RouteContext) {
+  const { id } = await context.params;
+  let body: Record<string, unknown> = {};
+
+  if (!id) return NextResponse.json({ error: "Missing booking id." }, { status: 400 });
+
   try {
-    const { id } = await context.params;
-
-    if (!id) return NextResponse.json({ error: "Missing booking id." }, { status: 400 });
-
-    let body: Record<string, unknown> = {};
-
     try {
       body = (await request.json()) as Record<string, unknown>;
     } catch {
@@ -179,7 +178,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     const message = error instanceof Error ? error.message : String(error);
 
     if (shouldUseDemoData(error)) {
-      const targetSlotId = typeof body.targetSlotId === "string" ? body.targetSlotId.trim() : "";
+      const targetSlotId = typeof body.targetSlotId === "string" ? (body.targetSlotId as string).trim() : "";
 
       if (!targetSlotId) {
         const result = cancelDemoBooking(id);
