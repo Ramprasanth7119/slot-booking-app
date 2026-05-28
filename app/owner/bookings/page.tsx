@@ -32,6 +32,21 @@ export default function OwnerBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
+  const [selectedSlotId, setSelectedSlotId] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const uniqueSlots = Array.from(
+    new Map((bookings || []).map((b) => [b.slotId, { id: b.slotId, title: b.slotTitle }])).values()
+  ).sort((a, b) => a.title.localeCompare(b.title));
+
+  const filteredBookings = (bookings || []).filter((b) => {
+    const matchesSlot = selectedSlotId === "all" || b.slotId === selectedSlotId;
+    const matchesSearch =
+      b.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.customerEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.slotTitle.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSlot && matchesSearch;
+  });
 
   async function fetchBookings() {
     setLoading(true);
@@ -111,6 +126,39 @@ export default function OwnerBookingsPage() {
         </Link>
       </div>
 
+      {bookings && bookings.length > 0 && (
+        <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 lg:flex-row lg:items-center">
+          <div className="flex flex-1 flex-col gap-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Search</label>
+            <input
+              type="text"
+              placeholder="Filter by name, email, or event title..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-10 rounded-xl border border-black/10 bg-white/50 px-4 text-sm text-foreground focus:border-emerald-400/50 focus:outline-none focus:ring-1 focus:ring-emerald-400/50 dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label htmlFor="slot-filter" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Event
+            </label>
+            <select
+              id="slot-filter"
+              value={selectedSlotId}
+              onChange={(e) => setSelectedSlotId(e.target.value)}
+              className="h-10 rounded-xl border border-black/10 bg-white/50 px-4 text-sm text-foreground focus:border-emerald-400/50 focus:outline-none focus:ring-1 focus:ring-emerald-400/50 dark:border-white/10 dark:bg-zinc-900 dark:text-white sm:w-80"
+            >
+              <option value="all" className="bg-white text-black dark:bg-zinc-900 dark:text-white">All Events ({bookings.length})</option>
+              {uniqueSlots.map((slot) => (
+                <option key={slot.id} value={slot.id} className="bg-white text-black dark:bg-zinc-900 dark:text-white">
+                  {slot.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
       {message ? (
         <div
           className={`rounded-2xl border px-4 py-3 text-sm ${
@@ -129,13 +177,13 @@ export default function OwnerBookingsPage() {
         </div>
       ) : null}
 
-      {bookings && bookings.length > 0 ? (
+      {filteredBookings && filteredBookings.length > 0 ? (
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
-            Total Bookings: {bookings.filter((b) => b.bookingStatus === "confirmed").length} confirmed, {bookings.filter((b) => b.bookingStatus === "cancelled").length} cancelled
+            Total Bookings: {filteredBookings.filter((b) => b.bookingStatus === "confirmed").length} confirmed, {filteredBookings.filter((b) => b.bookingStatus === "cancelled").length} cancelled
           </p>
           <div className="grid gap-4">
-            {bookings.map((booking, idx) => {
+            {filteredBookings.map((booking, idx) => {
               const slotStart = new Date(booking.slotStartTime).toLocaleString("en-US", {
                 weekday: "short",
                 year: "numeric",

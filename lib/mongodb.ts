@@ -2,10 +2,10 @@ import { MongoClient } from "mongodb";
 
 const mongoDbName = process.env.MONGODB_DB ?? "slotbook";
 const mongoClientOptions = {
-  serverSelectionTimeoutMS: 500,
-  connectTimeoutMS: 500,
-  socketTimeoutMS: 1000,
-  waitQueueTimeoutMS: 500,
+  serverSelectionTimeoutMS: 5000,
+  connectTimeoutMS: 5000,
+  socketTimeoutMS: 10000,
+  waitQueueTimeoutMS: 5000,
   directConnection: true,
 };
 

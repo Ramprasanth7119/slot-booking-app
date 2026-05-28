@@ -138,17 +138,19 @@ export default function OwnerLayout({ children }: { children: ReactNode }) {
             <p className="text-[0.7rem] uppercase tracking-[0.32em] text-violet-300/80">Owner area</p>
             <p className="mt-1 text-sm text-zinc-300">Protected slot management workspace</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Link href="/" className={`${buttonClassName("ghost")} inline-flex h-10 px-4`}>
               Home
             </Link>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className={`${buttonClassName("secondary")} inline-flex h-10 px-4`}
-            >
-              Logout
-            </button>
+            <div className="mr-24 flex items-center">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className={`${buttonClassName("secondary")} inline-flex h-10 px-4`}
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
         <div className="flex-1">{children}</div>

@@ -68,7 +68,13 @@ function formatRelativeTime(value: Date | null) {
     return "Waiting for first sync";
   }
 
-  return `Last synced ${value.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  const hours = value.getUTCHours();
+  const minutes = value.getUTCMinutes().toString().padStart(2, "0");
+  const period = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+  const formattedTime = `${displayHours}:${minutes} ${period}`;
+
+  return `Last synced ${formattedTime}`;
 }
 
 export function HomeFeatureShowcase({ initialSlots }: HomeFeatureShowcaseProps) {
